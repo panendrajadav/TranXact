@@ -105,14 +105,26 @@
   }
 
   h1 {
-    @apply text-3xl font-bold tracking-tight;
+    @apply text-4xl font-bold tracking-tight text-primary;
   }
 
   h2 {
-    @apply text-2xl font-semibold tracking-tight;
+    @apply text-3xl font-semibold tracking-tight text-foreground;
   }
 
   h3 {
-    @apply text-xl font-semibold;
+    @apply text-2xl font-semibold text-foreground;
+  }
+
+  p {
+    @apply text-base leading-relaxed text-foreground/90;
+  }
+
+  label {
+    @apply font-medium text-foreground;
+  }
+
+  a {
+    @apply text-primary hover:text-primary/90 transition-colors;
   }
 }

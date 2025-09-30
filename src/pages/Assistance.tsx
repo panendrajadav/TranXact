@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import Header from "@/components/Header";
 import { HelpCircle, MessageCircle, FileText, Phone } from "lucide-react";
+import { Chat } from "@/components/ui/chat";
 
 const Assistance = () => {
   const helpTopics = [
@@ -96,48 +97,10 @@ const Assistance = () => {
             </div>
           </section>
 
-          {/* Contact Form */}
+          {/* Live Chat */}
           <section>
-            <h2 className="text-3xl font-semibold mb-8">Still Need Help?</h2>
-            <Card className="max-w-2xl mx-auto">
-              <CardContent className="p-8">
-                <form className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" placeholder="Your first name" />
-                    </div>
-                    <div>
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" placeholder="Your last name" />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="your.email@example.com" />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" placeholder="How can we help you?" />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="message">Message</Label>
-                    <Textarea 
-                      id="message" 
-                      placeholder="Describe your issue or question in detail..."
-                      rows={5}
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full">
-                    Send Message
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <h2 className="text-3xl font-semibold mb-8">Chat with Support</h2>
+            <Chat />
           </section>
 
           {/* Contact Information */}

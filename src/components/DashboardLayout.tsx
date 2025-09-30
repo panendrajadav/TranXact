@@ -2,12 +2,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "@/components/Header";
-import DashboardOverview from "@/components/DashboardOverview";
+import { useAuth } from "@/contexts/AuthProvider";
+import { PrivateDashboard } from "@/components/PrivateDashboard";
+import { PublicDashboard } from "@/components/PublicDashboard";
 import DashboardReports from "@/components/DashboardReports";
 import DashboardHistory from "@/components/DashboardHistory";
 import DashboardSettings from "@/components/DashboardSettings";
 
 const DashboardLayout = () => {
+  const { userType } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
@@ -16,25 +19,6 @@ const DashboardLayout = () => {
       
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="space-y-6">
-          {/* Welcome Section */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold">Welcome</h1>
-              <p className="text-muted-foreground text-lg">To TranXact, Walter White</p>
-            </div>
-            <div className="flex gap-3">
-              <Button onClick={() => window.location.href = '/send'}>
-                Send
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => window.location.href = '/balance'}
-              >
-                Check Balance
-              </Button>
-            </div>
-          </div>
-
           {/* Dashboard Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4 max-w-md">
@@ -45,7 +29,7 @@ const DashboardLayout = () => {
             </TabsList>
 
             <TabsContent value="overview" className="mt-6">
-              <DashboardOverview />
+              {userType === 'private' ? <PrivateDashboard /> : <PublicDashboard />}
             </TabsContent>
             
             <TabsContent value="reports" className="mt-6">

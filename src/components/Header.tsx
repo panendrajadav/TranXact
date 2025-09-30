@@ -1,8 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { useState } from "react";
-import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
+import { ArrowLeft, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthProvider";
 
 interface HeaderProps {
   showAuthButtons?: boolean;
@@ -11,12 +11,14 @@ interface HeaderProps {
 const Header = ({ showAuthButtons = false }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [showDialog, setShowDialog] = useState(false);
+  const { isAuthenticated, userName, logout } = useAuth();
 
-  const isAuthenticated = location.pathname.includes('/dashboard') || 
-                         location.pathname.includes('/balance') || 
-                         location.pathname.includes('/send') ||
-                         location.pathname.includes('/success');
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const showBackButton = location.pathname !== '/' && location.pathname !== '/dashboard';
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -24,8 +26,13 @@ const Header = ({ showAuthButtons = false }: HeaderProps) => {
 
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-background border-b border-border">
-      <div className="flex items-center space-x-2">
-        <Link to="/" className="flex items-center space-x-2" onClick={() => navigate('/')}>
+      <div className="flex items-center space-x-4">
+        {showBackButton && (
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
+        <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2">
           <img src="/logo.png" alt="TranXact Logo" className="h-7 w-7"/>
           <span className="text-xl font-bold text-foreground">TranXact</span>
         </Link>
@@ -64,16 +71,23 @@ const Header = ({ showAuthButtons = false }: HeaderProps) => {
         
         {isAuthenticated && (
           <>
-            <Button variant="default" onClick={() => setShowDialog(true)}>Connect Wallet</Button>
+            <span className="text-sm text-muted-foreground">
+              Welcome, {userName || 'User'}
+            </span>
             <Avatar className="h-10 w-10">
               <AvatarImage src="src/assets/walter white.jpg" alt="User" />
-              <AvatarFallback className="bg-primary text-primary-foreground">WW</AvatarFallback>
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                {userName ? userName.charAt(0).toUpperCase() : 'U'}
+              </AvatarFallback>
             </Avatar>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+            </Button>
           </>
         )}
       </div>
 
-      <UnderDevelopmentDialog open={showDialog} onClose={() => setShowDialog(false)} />
+
     </header>
   );
 };

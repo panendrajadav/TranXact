@@ -1,25 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { WalletConnect } from "@/components/WalletConnect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useWallet } from "@/contexts/WalletProvider";
+import { useAuth } from "@/contexts/AuthProvider";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { isConnected } = useWallet();
+  const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (isAuthenticated) {
+    return null;
+  }
+
+  // Demo credentials
+  const PRIVATE_DONOR = { email: "private@tranxact.com", password: "private123" };
+  const PUBLIC_DONOR = { email: "public@tranxact.com", password: "public123" };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login - in real app, validate credentials
-    navigate('/dashboard');
+    if (!isConnected) return;
+    
+    if (email === PRIVATE_DONOR.email && password === PRIVATE_DONOR.password) {
+      login('private');
+      navigate('/dashboard');
+    } else if (email === PUBLIC_DONOR.email && password === PUBLIC_DONOR.password) {
+      login('public');
+      navigate('/dashboard');
+    }
   };
+
+  const isPrivateLogin = email === PRIVATE_DONOR.email && password === PRIVATE_DONOR.password;
+  const isPublicLogin = email === PUBLIC_DONOR.email && password === PUBLIC_DONOR.password;
+  const isLoginEnabled = (isPrivateLogin || isPublicLogin) && isConnected;
 
   const handleSocialLogin = (provider: string) => {
     // Simulate social login
@@ -34,6 +64,10 @@ const Login = () => {
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">Welcome back!</h1>
             <p className="text-muted-foreground">Enter your credentials to access your account</p>
+          </div>
+
+          <div className="space-y-4">
+            <WalletConnect />
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -75,7 +109,7 @@ const Login = () => {
               <Label htmlFor="remember" className="text-sm">Remember for 30 days</Label>
             </div>
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={!isLoginEnabled}>
               Login
             </Button>
           </form>
@@ -104,6 +138,54 @@ const Login = () => {
               <img src="src/assets/apple-logo.png" alt="Apple" className="w-5 h-5 mr-2" />
               Sign in with Apple
             </Button>
+
+            {!isConnected && (
+              <p className="text-xs text-red-500 text-center">
+                ⚠️ Wallet connection required for login
+              </p>
+            )}
+
+            <div className="bg-muted/50 p-3 rounded text-xs space-y-3">
+              <p className="font-medium">Demo Credentials:</p>
+              
+              <div className="space-y-2">
+                <div className="bg-blue-50 p-2 rounded">
+                  <p className="font-medium text-blue-700">Private Donor:</p>
+                  <p>Email: {PRIVATE_DONOR.email}</p>
+                  <p>Password: {PRIVATE_DONOR.password}</p>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setEmail(PRIVATE_DONOR.email);
+                      setPassword(PRIVATE_DONOR.password);
+                    }}
+                    className="w-full mt-1 text-xs"
+                  >
+                    Auto-fill Private
+                  </Button>
+                </div>
+                
+                <div className="bg-green-50 p-2 rounded">
+                  <p className="font-medium text-green-700">Public Donor:</p>
+                  <p>Email: {PUBLIC_DONOR.email}</p>
+                  <p>Password: {PUBLIC_DONOR.password}</p>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setEmail(PUBLIC_DONOR.email);
+                      setPassword(PUBLIC_DONOR.password);
+                    }}
+                    className="w-full mt-1 text-xs"
+                  >
+                    Auto-fill Public
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="text-center text-sm">

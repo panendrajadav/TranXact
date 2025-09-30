@@ -1,9 +1,48 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import Header from "@/components/Header";
+import { useWallet } from "@/contexts/WalletProvider";
+import { AlgorandService } from "@/lib/algorand";
+import { APP_CONFIG } from "@/lib/config";
 
 const CheckBalance = () => {
+  const { wallet, account, isConnected } = useWallet();
+  const [isLoading, setIsLoading] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBalance = async () => {
+    if (!isConnected || !account) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+      const accountBalance = await algoService.getBalance(account);
+      setBalance(accountBalance);
+      setLastUpdated(new Date());
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch balance');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchBalance();
+  };
+
+  useEffect(() => {
+    if (isConnected && account) {
+      fetchBalance();
+    }
+  }, [isConnected, account]);
   const impactStats = [
     { label: "Total Donations", value: "$15,000" },
     { label: "Projects Supported", value: "25" },
@@ -45,19 +84,66 @@ const CheckBalance = () => {
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Your Balance:</div>
-              <div className="text-3xl font-bold text-primary">$440.0</div>
+              <div className="text-3xl font-bold text-primary">
+                {isConnected ? (
+                  balance !== null ? `${balance.toFixed(6)} ALGO` : '--'
+                ) : (
+                  'Connect Wallet'
+                )}
+              </div>
+              {isConnected && account && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  {account.slice(0, 6)}...{account.slice(-4)}
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Wallet Connection Status */}
+          {!isConnected && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Please connect your Pera Wallet to view your balance and make donations.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Action Buttons */}
           <div className="flex gap-3">
-            <Button onClick={() => window.location.href = '/send'}>
+            <Button 
+              onClick={() => window.location.href = '/send'}
+              disabled={!isConnected}
+            >
               Send
             </Button>
-            <Button variant="outline">
-              Check Balance
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              disabled={isLoading || !isConnected}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Balance
+                </>
+              )}
             </Button>
           </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-8">
             {/* My Impact Stats */}

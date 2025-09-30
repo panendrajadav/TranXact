@@ -12,7 +12,7 @@ const TransactionSuccessful = () => {
   const [showDialog, setShowDialog] = useState(false);
   
   // Get data passed from SendFunds page
-  const { organization = "Global Relief Fund", amount = "$10.00" } = location.state || {};
+  const { organization = "Global Relief Fund", amount = "10.00", reason = "General donation", transactionId = "TXN_DEMO_123" } = location.state || {};
 
   return (
     <div className="min-h-screen bg-background">
@@ -48,7 +48,7 @@ const TransactionSuccessful = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Amount</span>
-                    <span className="font-semibold">{amount}</span>
+                    <span className="font-semibold">{amount} ALGO</span>
                   </div>
                   
                   <div className="flex justify-between">
@@ -63,7 +63,17 @@ const TransactionSuccessful = () => {
                   
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Transaction ID</span>
-                    <span className="font-mono text-sm">0xabc12f5</span>
+                    <span className="font-mono text-sm">{transactionId.slice(0, 12)}...</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Reason</span>
+                    <span className="font-semibold text-right max-w-xs">{reason}</span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Network</span>
+                    <span className="font-semibold">Algorand TestNet</span>
                   </div>
                 </div>
               </CardContent>
