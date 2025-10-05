@@ -13,7 +13,6 @@ import Login from "./pages/Login";
 import DashboardLayout from "./components/DashboardLayout";
 import CheckBalance from "./pages/CheckBalance";
 import SendFunds from "./pages/SendFunds";
-import SendFundsPublic from "./pages/SendFundsPublic";
 import TransactionSuccessful from "./pages/TransactionSuccessful";
 import Assistance from "./pages/Assistance";
 import Explore from "./pages/Explore";
@@ -39,7 +38,6 @@ const App = () => (
             <Route path="/dashboard" element={<DashboardLayout />} />
             <Route path="/balance" element={<CheckBalance />} />
             <Route path="/send" element={<SendFunds />} />
-            <Route path="/send-public" element={<SendFundsPublic />} />
             <Route path="/success" element={<TransactionSuccessful />} />
             <Route path="/assistance" element={<Assistance />} />
             <Route path="/explore" element={<Explore />} />

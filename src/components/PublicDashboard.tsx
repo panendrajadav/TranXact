@@ -76,7 +76,7 @@ export function PublicDashboard() {
       </div>
 
       <div className="flex gap-3">
-        <Button onClick={() => window.location.href = '/send-public'}>
+        <Button onClick={() => window.location.href = '/send'}>
           Send Funds
         </Button>
         <Button variant="outline" onClick={() => {
