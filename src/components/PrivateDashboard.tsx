@@ -6,11 +6,13 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { useAuth } from "@/contexts/AuthProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
+import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 export function PrivateDashboard() {
   const { wallet, account, isConnected } = useWallet();
   const { userName } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
 
   useEffect(() => {
     const fetchBalance = async () => {
@@ -28,20 +30,20 @@ export function PrivateDashboard() {
   }, [isConnected, account, wallet]);
 
   const impactStats = [
-    { label: "Total Donations", value: "$2,500" },
+    { label: "Total Donations", value: "2,500 ALGO" },
     { label: "Projects Supported", value: "8" },
     { label: "Lives Impacted", value: "150+" }
   ];
 
   const donations = [
     {
-      amount: "$500",
+      amount: "125 ALGO",
       description: "School books for children",
       category: "Education",
       date: "2024-01-15"
     },
     {
-      amount: "$300",
+      amount: "75 ALGO",
       description: "Medical supplies",
       category: "Healthcare", 
       date: "2024-01-10"
@@ -71,9 +73,6 @@ export function PrivateDashboard() {
       <div className="flex gap-3">
         <Button onClick={() => window.location.href = '/send'}>
           Make Donation
-        </Button>
-        <Button variant="outline" onClick={() => window.location.href = '/balance'}>
-          Check Balance
         </Button>
       </div>
 
@@ -112,7 +111,7 @@ export function PrivateDashboard() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground">{donation.date}</div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => setShowDialog(true)}>
                       View Details
                     </Button>
                   </div>
@@ -122,6 +121,8 @@ export function PrivateDashboard() {
           ))}
         </div>
       </section>
+      
+      <UnderDevelopmentDialog open={showDialog} onClose={() => setShowDialog(false)} />
     </div>
   );
 }

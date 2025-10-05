@@ -33,11 +33,11 @@ const DashboardLayout = () => {
             </TabsContent>
             
             <TabsContent value="reports" className="mt-6">
-              <DashboardReports />
+              <DashboardReports isPublic={userType === 'public'} />
             </TabsContent>
             
             <TabsContent value="history" className="mt-6">
-              <DashboardHistory />
+              <DashboardHistory isPublic={userType === 'public'} />
             </TabsContent>
             
             <TabsContent value="settings" className="mt-6">

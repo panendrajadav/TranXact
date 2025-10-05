@@ -9,13 +9,13 @@ const DashboardReports = () => {
 
   const donations = [
     {
-      amount: "$500",
+      amount: "125.5 ALGO",
       description: "School books purchased for 100 children",
       category: "Education",
       status: "active"
     },
     {
-      amount: "$200",
+      amount: "50.2 ALGO",
       description: "Medical supplies for underserved communities",
       category: "Healthcare",
       status: "active"
@@ -61,7 +61,7 @@ const DashboardReports = () => {
           <CardContent className="p-6">
             <div className="mb-4">
               <div className="text-sm text-muted-foreground mb-1">Donation Distribution</div>
-              <div className="text-2xl font-bold">$700</div>
+              <div className="text-2xl font-bold">175.7 ALGO</div>
               <div className="text-sm text-muted-foreground">Total</div>
             </div>
             

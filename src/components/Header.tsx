@@ -39,21 +39,45 @@ const Header = ({ showAuthButtons = false }: HeaderProps) => {
       </div>
 
       <nav className="hidden md:flex items-center space-x-8">
+        {isAuthenticated && (
+          <button 
+            onClick={() => handleNavigation('/dashboard')}
+            className={`transition-colors ${
+              location.pathname === '/dashboard' 
+                ? 'text-primary font-medium' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Dashboard
+          </button>
+        )}
         <button 
           onClick={() => handleNavigation('/explore')}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className={`transition-colors ${
+            location.pathname === '/explore' 
+              ? 'text-primary font-medium' 
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
           Explore
         </button>
         <button 
           onClick={() => handleNavigation('/projects')}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className={`transition-colors ${
+            location.pathname === '/projects' 
+              ? 'text-primary font-medium' 
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
           Projects
         </button>
         <button 
           onClick={() => handleNavigation('/assistance')}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className={`transition-colors ${
+            location.pathname === '/assistance' 
+              ? 'text-primary font-medium' 
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
           Assistance
         </button>

@@ -8,20 +8,20 @@ const DashboardOverview = () => {
   const [showDialog, setShowDialog] = useState(false);
 
   const impactStats = [
-    { label: "Total Donations", value: "$15,000" },
+    { label: "Total Donations", value: "3,750 ALGO" },
     { label: "Projects Supported", value: "25" },
     { label: "Lives Impacted", value: "500+" }
   ];
 
   const donations = [
     {
-      amount: "$500",
+      amount: "125 ALGO",
       description: "School books purchased for 100 children",
       category: "Education",
       status: "active"
     },
     {
-      amount: "$200",
+      amount: "50 ALGO",
       description: "Medical supplies for underserved communities",
       category: "Healthcare",
       status: "active"
@@ -29,9 +29,9 @@ const DashboardOverview = () => {
   ];
 
   const history = [
-    { type: "donation", description: "Donation to Education for All", amount: "$500" },
-    { type: "received", description: "Received Donation from Friend", amount: "$100" },
-    { type: "donation", description: "Donation to Healthcare Access", amount: "$200" }
+    { type: "donation", description: "Donation to Education for All", amount: "125 ALGO" },
+    { type: "received", description: "Received Donation from Friend", amount: "25 ALGO" },
+    { type: "donation", description: "Donation to Healthcare Access", amount: "50 ALGO" }
   ];
 
   return (
@@ -110,7 +110,7 @@ const DashboardOverview = () => {
           <CardContent className="p-6 align-center">
             <div className="mb-4">
               <div className="text-sm text-muted-foreground mb-1">Donation Distribution</div>
-              <div className="text-2xl font-bold">$700</div>
+              <div className="text-2xl font-bold">175 ALGO</div>
               <div className="text-sm text-muted-foreground">Total</div>
             </div>
             

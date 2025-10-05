@@ -5,12 +5,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AlgoWalletProvider } from "./contexts/WalletProvider";
 import { AuthProvider } from "./contexts/AuthProvider";
+import { ProjectProvider } from "./contexts/ProjectProvider";
+import { DonationProvider } from "./contexts/DonationProvider";
 import Landing from "./pages/Landing";
 import GetStarted from "./pages/GetStarted";
 import Login from "./pages/Login";
 import DashboardLayout from "./components/DashboardLayout";
 import CheckBalance from "./pages/CheckBalance";
 import SendFunds from "./pages/SendFunds";
+import SendFundsPublic from "./pages/SendFundsPublic";
 import TransactionSuccessful from "./pages/TransactionSuccessful";
 import Assistance from "./pages/Assistance";
 import Explore from "./pages/Explore";
@@ -23,7 +26,9 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <AlgoWalletProvider>
+        <DonationProvider>
+          <ProjectProvider>
+            <AlgoWalletProvider>
           <BrowserRouter>
           <Toaster />
           <Sonner />
@@ -34,6 +39,7 @@ const App = () => (
             <Route path="/dashboard" element={<DashboardLayout />} />
             <Route path="/balance" element={<CheckBalance />} />
             <Route path="/send" element={<SendFunds />} />
+            <Route path="/send-public" element={<SendFundsPublic />} />
             <Route path="/success" element={<TransactionSuccessful />} />
             <Route path="/assistance" element={<Assistance />} />
             <Route path="/explore" element={<Explore />} />
@@ -42,7 +48,9 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </BrowserRouter>
-        </AlgoWalletProvider>
+            </AlgoWalletProvider>
+          </ProjectProvider>
+        </DonationProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

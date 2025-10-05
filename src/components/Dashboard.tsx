@@ -55,7 +55,7 @@ export const Dashboard = () => {
             <div className="flex items-center space-x-2">
               <Badge variant="secondary" className="bg-secondary">
                 <Wallet className="h-3 w-3 mr-1" />
-                Balance: $2,847.50
+                Balance: 711.88 ALGO
               </Badge>
             </div>
           </div>
@@ -118,7 +118,7 @@ export const Dashboard = () => {
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-4 bg-muted rounded-lg">
-                      <div className="text-2xl font-bold text-primary">$12,450</div>
+                      <div className="text-2xl font-bold text-primary">3,112.5 ALGO</div>
                       <div className="text-sm text-muted-foreground">Total Donated</div>
                     </div>
                     <div className="text-center p-4 bg-muted rounded-lg">
@@ -130,7 +130,7 @@ export const Dashboard = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span>Goal Progress</span>
-                      <span className="text-muted-foreground">$12,450 / $15,000</span>
+                      <span className="text-muted-foreground">3,112.5 / 3,750 ALGO</span>
                     </div>
                     <Progress value={83} className="h-2" />
                     <p className="text-xs text-muted-foreground">83% of your annual giving goal</p>
@@ -148,9 +148,9 @@ export const Dashboard = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[
-                    { org: "Clean Water Initiative", amount: "$250", date: "2 days ago", impact: "Provided clean water for 25 people" },
-                    { org: "Education For All", amount: "$500", date: "1 week ago", impact: "Sponsored 2 children's education" },
-                    { org: "Food Bank Network", amount: "$150", date: "2 weeks ago", impact: "Fed 30 families for a week" }
+                    { org: "Clean Water Initiative", amount: "62.5 ALGO", date: "2 days ago", impact: "Provided clean water for 25 people" },
+                    { org: "Education For All", amount: "125 ALGO", date: "1 week ago", impact: "Sponsored 2 children's education" },
+                    { org: "Food Bank Network", amount: "37.5 ALGO", date: "2 weeks ago", impact: "Fed 30 families for a week" }
                   ].map((donation, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div className="flex-1">

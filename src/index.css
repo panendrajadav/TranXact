@@ -117,11 +117,39 @@
   }
 
   p {
-    @apply text-base leading-relaxed text-foreground/90;
+    @apply text-lg leading-relaxed text-foreground/90;
   }
 
   label {
-    @apply font-medium text-foreground;
+    @apply text-base font-medium text-foreground;
+  }
+
+  /* Improved readability for small text */
+  .text-xs {
+    @apply text-sm;
+  }
+
+  /* Better button text sizing */
+  button {
+    @apply text-base;
+  }
+
+  /* Input field improvements */
+  input, textarea, select {
+    @apply text-base;
+  }
+
+  /* Table text improvements */
+  table {
+    @apply text-base;
+  }
+
+  th {
+    @apply text-base font-medium;
+  }
+
+  td {
+    @apply text-base;
   }
 
   a {

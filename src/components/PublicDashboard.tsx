@@ -6,11 +6,16 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { useAuth } from "@/contexts/AuthProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
+import { ManagePrograms } from "@/components/ManagePrograms";
+import { AllocateToProjects } from "@/components/AllocateToProjects";
 
 export function PublicDashboard() {
   const { wallet, account, isConnected } = useWallet();
   const { userName } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
+  const [showManagePrograms, setShowManagePrograms] = useState(false);
+  const [showAllocate, setShowAllocate] = useState(false);
+
 
   useEffect(() => {
     const fetchBalance = async () => {
@@ -28,21 +33,21 @@ export function PublicDashboard() {
   }, [isConnected, account, wallet]);
 
   const impactStats = [
-    { label: "Total Funding", value: "$50,000" },
+    { label: "Total Funding", value: "12,500 ALGO" },
     { label: "NGOs Supported", value: "25" },
     { label: "Lives Impacted", value: "5,000+" }
   ];
 
   const fundingPrograms = [
     {
-      amount: "$10,000",
+      amount: "2,500 ALGO",
       description: "Education Infrastructure Program",
       category: "Education",
       ngos: 5,
       status: "Active"
     },
     {
-      amount: "$15,000", 
+      amount: "3,750 ALGO", 
       description: "Healthcare Access Initiative",
       category: "Healthcare",
       ngos: 8,
@@ -71,17 +76,31 @@ export function PublicDashboard() {
       </div>
 
       <div className="flex gap-3">
-        <Button onClick={() => window.location.href = '/send'}>
-          Distribute Funds
+        <Button onClick={() => window.location.href = '/send-public'}>
+          Send Funds
         </Button>
-        <Button variant="outline">
-          Manage Programs
+        <Button variant="outline" onClick={() => {
+          setShowManagePrograms(!showManagePrograms);
+          if (showAllocate) setShowAllocate(false);
+        }}>
+          {showManagePrograms ? 'Back to Dashboard' : 'Manage Programs'}
         </Button>
-        <Button variant="outline" onClick={() => window.location.href = '/balance'}>
-          Check Balance
+        <Button variant="outline" onClick={() => {
+          setShowAllocate(!showAllocate);
+          if (showManagePrograms) setShowManagePrograms(false);
+        }}>
+          {showAllocate ? 'Back to Dashboard' : 'Allocate Funds'}
         </Button>
+
+
       </div>
 
+      {showManagePrograms ? (
+        <ManagePrograms />
+      ) : showAllocate ? (
+        <AllocateToProjects />
+      ) : (
+        <>
       <section>
         <h2 className="text-2xl font-semibold mb-4">Funding Impact</h2>
         <div className="grid md:grid-cols-3 gap-4">
@@ -155,6 +174,8 @@ export function PublicDashboard() {
           </CardContent>
         </Card>
       </section>
+        </>
+      )}
     </div>
   );
 }

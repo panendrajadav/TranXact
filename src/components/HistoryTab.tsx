@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,128 +10,89 @@ import {
   ExternalLink,
   Calendar,
   TrendingUp,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react";
+import { useWallet } from "@/contexts/WalletProvider";
+import { TransactionService, AlgorandTransaction } from "@/lib/transactionService";
 
 export const HistoryTab = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [transactions, setTransactions] = useState<AlgorandTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { account } = useWallet();
+  const transactionService = new TransactionService();
 
-  // Mock transaction data
-  const transactions = [
-    {
-      id: "TXN001234567",
-      timestamp: "2024-01-15 14:30:25",
-      sender: "You",
-      receiver: "Clean Water Initiative",
-      amount: 250.00,
-      status: "Completed",
-      category: "Health",
-      impact: "Provided clean water for 25 people"
-    },
-    {
-      id: "TXN001234566",
-      timestamp: "2024-01-10 09:15:10",
-      sender: "You", 
-      receiver: "Education For All",
-      amount: 500.00,
-      status: "Completed",
-      category: "Education",
-      impact: "Sponsored 2 children's education for 6 months"
-    },
-    {
-      id: "TXN001234565",
-      timestamp: "2024-01-05 16:45:33",
-      sender: "You",
-      receiver: "Food Bank Network",
-      amount: 150.00,
-      status: "Completed",
-      category: "Food Security",
-      impact: "Fed 30 families for a week"
-    },
-    {
-      id: "TXN001234564",
-      timestamp: "2023-12-28 11:20:18",
-      sender: "You",
-      receiver: "Green Earth Foundation",
-      amount: 300.00,
-      status: "Completed",
-      category: "Environment",
-      impact: "Planted 150 trees in deforested areas"
-    },
-    {
-      id: "TXN001234563",
-      timestamp: "2023-12-20 13:55:42",
-      sender: "You",
-      receiver: "Medical Aid International",
-      amount: 750.00,
-      status: "Completed",
-      category: "Health",
-      impact: "Provided medical supplies for rural clinic"
-    },
-    {
-      id: "TXN001234562",
-      timestamp: "2023-12-15 10:30:07",
-      sender: "You",
-      receiver: "Children's Learning Center",
-      amount: 425.00,
-      status: "Completed",
-      category: "Education",
-      impact: "Purchased learning materials for 50 students"
-    },
-    {
-      id: "TXN001234561",
-      timestamp: "2023-12-10 08:45:15",
-      sender: "You",
-      receiver: "Disaster Relief Fund",
-      amount: 1000.00,
-      status: "Completed",
-      category: "Emergency",
-      impact: "Emergency shelter for 20 families"
-    },
-    {
-      id: "TXN001234560",
-      timestamp: "2023-12-01 15:20:30",
-      sender: "You",
-      receiver: "Wildlife Conservation",
-      amount: 200.00,
-      status: "Completed",
-      category: "Environment",
-      impact: "Protected 5 acres of wildlife habitat"
+  useEffect(() => {
+    if (account) {
+      fetchTransactions();
     }
-  ];
+  }, [account]);
+
+  const fetchTransactions = async () => {
+    if (!account) return;
+    
+    setLoading(true);
+    try {
+      const txs = await transactionService.getAccountTransactions(account, 100);
+      setTransactions(txs);
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredTransactions = transactions.filter(
     (transaction) =>
       transaction.receiver.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+      transaction.sender.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const formatAddress = (address: string) => {
+    if (address.length <= 20) return address;
+    return `${address.slice(0, 10)}...${address.slice(-8)}`;
+  };
+
+  const openExplorer = (txId: string) => {
+    window.open(transactionService.getExplorerUrl(txId), '_blank');
+  };
+
+  const getThisMonthCount = () => {
+    const thisMonth = new Date().getMonth();
+    const thisYear = new Date().getFullYear();
+    return transactions.filter(tx => {
+      const txDate = new Date(tx.timestamp);
+      return txDate.getMonth() === thisMonth && txDate.getFullYear() === thisYear;
+    }).length;
+  };
+
+  const getSuccessRate = () => {
+    if (transactions.length === 0) return '0%';
+    const confirmed = transactions.filter(tx => tx.status === 'confirmed').length;
+    return `${Math.round((confirmed / transactions.length) * 100)}%`;
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Completed":
-        return "success";
-      case "Pending":
-        return "warning";
-      case "Failed":
+      case "confirmed":
+        return "default";
+      case "pending":
+        return "secondary";
+      case "failed":
         return "destructive";
       default:
         return "secondary";
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "Education":
-        return "bg-primary/10 text-primary";
-      case "Health":
-        return "bg-success/10 text-success";
-      case "Environment":
-        return "bg-info/10 text-info";
-      case "Emergency":
-        return "bg-destructive/10 text-destructive";
-      case "Food Security":
-        return "bg-accent/10 text-accent";
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "sent":
+        return "bg-red-50 text-red-700 border-red-200";
+      case "received":
+        return "bg-green-50 text-green-700 border-green-200";
       default:
         return "bg-muted text-muted-foreground";
     }
@@ -142,16 +103,16 @@ export const HistoryTab = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Transaction History</h2>
-          <p className="text-muted-foreground">Complete record of your donation transactions</p>
+          <h2 className="text-3xl font-bold text-foreground">Transaction History</h2>
+          <p className="text-lg text-muted-foreground">Complete record of your donation transactions</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" className="text-base">
+            <Filter className="h-5 w-5 mr-2" />
             Filter
           </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
+          <Button variant="outline" className="text-base">
+            <Download className="h-5 w-5 mr-2" />
             Export
           </Button>
         </div>
@@ -163,10 +124,10 @@ export const HistoryTab = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Transactions</p>
-                <p className="text-2xl font-bold text-primary">{transactions.length}</p>
+                <p className="text-base text-muted-foreground">Total Transactions</p>
+                <p className="text-3xl font-bold text-primary">{transactions.length}</p>
               </div>
-              <Clock className="h-8 w-8 text-primary" />
+              <Clock className="h-10 w-10 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -175,10 +136,10 @@ export const HistoryTab = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold text-success">3</p>
+                <p className="text-base text-muted-foreground">This Month</p>
+                <p className="text-3xl font-bold text-success">{getThisMonthCount()}</p>
               </div>
-              <Calendar className="h-8 w-8 text-success" />
+              <Calendar className="h-10 w-10 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -187,10 +148,10 @@ export const HistoryTab = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Success Rate</p>
-                <p className="text-2xl font-bold text-info">100%</p>
+                <p className="text-base text-muted-foreground">Success Rate</p>
+                <p className="text-3xl font-bold text-info">{getSuccessRate()}</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-info" />
+              <TrendingUp className="h-10 w-10 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -199,85 +160,124 @@ export const HistoryTab = () => {
       {/* Search and Filter */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Transaction Details</CardTitle>
-          <CardDescription>Search and filter your donation history</CardDescription>
+          <CardTitle className="text-2xl">Transaction Details</CardTitle>
+          <CardDescription className="text-base">Search and filter your donation history</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center space-x-3 mb-6">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
-                placeholder="Search by organization, transaction ID, or category..."
+                placeholder="Search by transaction ID, sender, or receiver..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-12 text-base py-3"
               />
             </div>
+            <Button onClick={fetchTransactions} disabled={loading || !account} className="text-base">
+              {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Refresh
+            </Button>
           </div>
 
           {/* Transaction Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 text-sm font-medium text-muted-foreground">Transaction ID</th>
-                  <th className="text-left py-3 text-sm font-medium text-muted-foreground">Timestamp</th>
-                  <th className="text-left py-3 text-sm font-medium text-muted-foreground">Receiver</th>
-                  <th className="text-right py-3 text-sm font-medium text-muted-foreground">Amount</th>
-                  <th className="text-center py-3 text-sm font-medium text-muted-foreground">Category</th>
-                  <th className="text-center py-3 text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="text-center py-3 text-sm font-medium text-muted-foreground">Actions</th>
+                <tr className="border-b-2 border-border">
+                  <th className="text-left py-4 text-base font-semibold text-muted-foreground">Transaction ID</th>
+                  <th className="text-left py-4 text-base font-semibold text-muted-foreground">Timestamp</th>
+                  <th className="text-left py-4 text-base font-semibold text-muted-foreground">Receiver</th>
+                  <th className="text-right py-4 text-base font-semibold text-muted-foreground">Amount</th>
+                  <th className="text-center py-4 text-base font-semibold text-muted-foreground">Block</th>
+                  <th className="text-center py-4 text-base font-semibold text-muted-foreground">Status</th>
+                  <th className="text-center py-4 text-base font-semibold text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((transaction, index) => (
-                  <tr key={index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                    <td className="py-4 text-sm font-mono">{transaction.id}</td>
-                    <td className="py-4 text-sm text-muted-foreground">{transaction.timestamp}</td>
-                    <td className="py-4">
-                      <div>
-                        <div className="font-medium text-sm">{transaction.receiver}</div>
-                        <div className="text-xs text-muted-foreground">{transaction.impact}</div>
-                      </div>
-                    </td>
-                    <td className="py-4 text-sm font-medium text-right">${transaction.amount.toFixed(2)}</td>
-                    <td className="py-4 text-center">
-                      <Badge variant="outline" className={getCategoryColor(transaction.category)}>
-                        {transaction.category}
-                      </Badge>
-                    </td>
-                    <td className="py-4 text-center">
-                      <Badge variant={getStatusColor(transaction.status) as any}>
-                        {transaction.status}
-                      </Badge>
-                    </td>
-                    <td className="py-4 text-center">
-                      <Button variant="ghost" size="sm">
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                      <p className="text-base text-muted-foreground">Loading transactions...</p>
                     </td>
                   </tr>
-                ))}
+                ) : filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12">
+                      <p className="text-base text-muted-foreground">
+                        {account ? 'No transactions found' : 'Connect wallet to view transactions'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTransactions.map((transaction, index) => (
+                    <tr key={index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                      <td className="py-5 text-base font-mono">
+                        <div className="flex items-center gap-2">
+                          {formatAddress(transaction.id)}
+                          <Badge variant="outline" className={`${getTypeColor(transaction.type)} text-xs`}>
+                            {transaction.type.toUpperCase()}
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="py-5 text-base text-muted-foreground">{transaction.timestamp}</td>
+                      <td className="py-5">
+                        <div>
+                          <div className="font-medium text-base">{formatAddress(transaction.receiver)}</div>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {transaction.note || 'Algorand transaction'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-5 text-base font-semibold text-right">
+                        <span className={transaction.type === 'sent' ? 'text-red-600' : 'text-green-600'}>
+                          {transaction.type === 'sent' ? '-' : '+'}{transaction.amount.toFixed(6)} ALGO
+                        </span>
+                      </td>
+                      <td className="py-5 text-center">
+                        <Badge variant="outline" className="text-sm px-3 py-1">
+                          Block #{transaction.blockNumber}
+                        </Badge>
+                      </td>
+                      <td className="py-5 text-center">
+                        <Badge variant={getStatusColor(transaction.status) as any} className="text-sm px-3 py-1">
+                          {transaction.status}
+                        </Badge>
+                      </td>
+                      <td className="py-5 text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-base"
+                          onClick={() => openExplorer(transaction.id)}
+                        >
+                          <ExternalLink className="h-5 w-5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
           {filteredTransactions.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No transactions found matching your search.</p>
+            <div className="text-center py-12">
+              <p className="text-lg text-muted-foreground">No transactions found matching your search.</p>
             </div>
           )}
 
-          {/* Pagination could go here */}
-          <div className="flex items-center justify-between mt-6">
-            <p className="text-sm text-muted-foreground">
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-8">
+            <p className="text-base text-muted-foreground">
               Showing {filteredTransactions.length} of {transactions.length} transactions
             </p>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm" disabled>
+            <div className="flex space-x-3">
+              <Button variant="outline" className="text-base" disabled>
                 Previous
               </Button>
-              <Button variant="outline" size="sm" disabled>
+              <Button variant="outline" className="text-base" disabled>
                 Next
               </Button>
             </div>

@@ -8,68 +8,23 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, AlertCircle, MapPin, Target } from "lucide-react";
 import Header from "@/components/Header";
 import { useWallet } from "@/contexts/WalletProvider";
-import { useDonations } from "@/contexts/DonationProvider";
+import { useProjects } from "@/contexts/ProjectProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
 import { toast } from "@/components/ui/use-toast";
 
-const SendFunds = () => {
+const SendFundsPublic = () => {
   const navigate = useNavigate();
   const { wallet, account, isConnected } = useWallet();
-  const { addDonation } = useDonations();
-  const [selectedOrg, setSelectedOrg] = useState<string>("");
+  const { projects, updateProjectFunding } = useProjects();
+  const [selectedProject, setSelectedProject] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const NGO_WALLETS = {
-    'global-relief': '6JSEKQ6JGA56ECOZ25ABSLJVKLDOME3KUGDFKPEQCA3LCNMA5E2ZZNC23E',
-    'childrens-health': 'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ',
-    'environmental-protection': 'B6JK2QA7LUPS2S7H3Y3L33ROXUFSDJICDJZC4FUJMRJWBXDQJVKL2LCGJM',
-    'animal-welfare': 'PC26UP77QZPOUSTG4O4NG4GOQ3KXFBZ2UPF67XN5JOAYSW4CUKG6ML5VMA',
-    'disaster-relief': 'TBEJZ26MKWXQXTQW5K43DN7NQQA6OGC76DHYIPXDQMDPZF4R3HKFMNZSDI'
-  } as const;
-
-  const organizations = [
-    {
-      id: "global-relief",
-      name: "Global Relief Fund",
-      description: "TechCorp's donation of 2,500 ALGO helped provide essential supplies to 2,000 families affected by the recent earthquake.",
-      image: "/api/placeholder/300/200",
-      category: "Disaster Relief"
-    },
-    {
-      id: "childrens-health",
-      name: "Children's Health Initiative",
-      description: "TechCorp's donation of 1,250 ALGO contributed to the vaccination of 1,000 children against preventable diseases.",
-      image: "/api/placeholder/300/200",
-      category: "Healthcare"
-    },
-    {
-      id: "environmental-protection",
-      name: "Environmental Protection Alliance",
-      description: "TechCorp's donation of 750 ALGO supported the planting of 4,000 trees in a reforestation project.",
-      image: "/api/placeholder/300/200",
-      category: "Environment"
-    },
-    {
-      id: "animal-welfare",
-      name: "Animal Welfare Society",
-      description: "TechCorp's donation of 375 ALGO helped provide shelter and care for 600 rescued animals.",
-      image: "/api/placeholder/300/200",
-      category: "Animal Welfare"
-    },
-    {
-      id: "disaster-relief",
-      name: "Disaster Relief Coalition",
-      description: "TechCorp's donation of 2,000 ALGO assisted in providing temporary housing for 1,200 individuals displaced by the recent floods.",
-      image: "/api/placeholder/300/200",
-      category: "Disaster Relief"
-    }
-  ];
 
 
 
@@ -83,10 +38,10 @@ const SendFunds = () => {
       return;
     }
 
-    if (!selectedOrg || !amount || !reason.trim()) {
+    if (!selectedProject || !amount || !reason.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please select an organization, enter an amount, and provide a reason",
+        description: "Please select a project, enter an amount, and provide a reason",
         variant: "destructive",
       });
       return;
@@ -106,10 +61,10 @@ const SendFunds = () => {
     
     try {
       const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
-      const orgWallet = NGO_WALLETS[selectedOrg as keyof typeof NGO_WALLETS];
+      const project = projects.find(p => p.id === selectedProject);
       
-      if (!orgWallet) {
-        throw new Error('Organization wallet not found');
+      if (!project) {
+        throw new Error('Project not found');
       }
 
       toast({
@@ -119,21 +74,13 @@ const SendFunds = () => {
 
       const txnId = await algoService.sendPayment({
         from: account,
-        to: orgWallet,
+        to: project.wallet,
         amount: AlgorandService.algoToMicroAlgos(amountNum),
-        note: `${reason} - Donation to ${organizations.find(org => org.id === selectedOrg)?.name}`
+        note: `${reason} - Donation to ${project.title}`
       });
 
-
-
-      addDonation({
-        donorAddress: account,
-        organizationName: organizations.find(org => org.id === selectedOrg)?.name || '',
-        amount: amountNum,
-        reason: reason,
-        date: new Date().toISOString(),
-        transactionId: txnId
-      });
+      // Update project funding in context
+      updateProjectFunding(selectedProject, amountNum);
 
       toast({
         title: "Transaction Successful",
@@ -142,7 +89,7 @@ const SendFunds = () => {
 
       navigate('/success', { 
         state: { 
-          organization: organizations.find(org => org.id === selectedOrg)?.name,
+          organization: project.title,
           amount: amount,
           reason: reason,
           transactionId: txnId
@@ -156,8 +103,6 @@ const SendFunds = () => {
         errorMessage = "Transaction was cancelled by user";
       } else if (error.message?.includes('insufficient')) {
         errorMessage = "Insufficient balance for transaction";
-      } else if (error.message?.includes('map is not a function')) {
-        errorMessage = "Wallet connection issue. Please reconnect your wallet";
       }
       
       toast({
@@ -170,31 +115,33 @@ const SendFunds = () => {
     }
   };
 
+  const selectedProjectData = projects.find(p => p.id === selectedProject);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
       <main className="max-w-4xl mx-auto px-6 py-8">
         <div className="space-y-8">
-          <h1 className="text-4xl font-bold">Send Funds</h1>
+          <h1 className="text-4xl font-bold">Send Funds to Projects</h1>
 
-          {/* Select Organization */}
+          {/* Select Project */}
           <section>
-            <h2 className="text-2xl font-semibold mb-4">Select Organization</h2>
+            <h2 className="text-2xl font-semibold mb-4">Select Project</h2>
             
             <div className="space-y-2">
-              <Label htmlFor="organization">Choose Organization</Label>
-              <Select value={selectedOrg} onValueChange={setSelectedOrg}>
+              <Label htmlFor="project">Choose Project</Label>
+              <Select value={selectedProject} onValueChange={setSelectedProject}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select an organization" />
+                  <SelectValue placeholder="Select a project to fund" />
                 </SelectTrigger>
                 <SelectContent>
-                  {organizations.map((org) => (
-                    <SelectItem key={org.id} value={org.id}>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center space-x-2">
-                        <span>{org.name}</span>
+                        <span>{project.title}</span>
                         <Badge variant="secondary" className="text-xs">
-                          {org.category}
+                          {project.category}
                         </Badge>
                       </div>
                     </SelectItem>
@@ -202,14 +149,41 @@ const SendFunds = () => {
                 </SelectContent>
               </Select>
               
-              {selectedOrg && (
+              {selectedProjectData && (
                 <Card className="mt-4">
-                  <CardContent className="p-4">
-                    <div className="flex space-x-4">
-                      <div className="w-12 h-12 bg-muted rounded-lg flex-shrink-0"></div>
-                      <div>
-                        <h3 className="font-semibold">{organizations.find(org => org.id === selectedOrg)?.name}</h3>
-                        <p className="text-sm text-muted-foreground">{organizations.find(org => org.id === selectedOrg)?.description}</p>
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-xl font-semibold">{selectedProjectData.title}</h3>
+                          <p className="text-muted-foreground">{selectedProjectData.organization}</p>
+                        </div>
+                        <Badge variant="secondary">{selectedProjectData.category}</Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground">{selectedProjectData.description}</p>
+                      
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {selectedProjectData.location}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{selectedProjectData.raised.toLocaleString()} ALGO</span>
+                          <span className="text-muted-foreground">
+                            of {selectedProjectData.target.toLocaleString()} ALGO
+                          </span>
+                        </div>
+                        <Progress 
+                          value={(selectedProjectData.raised / selectedProjectData.target) * 100} 
+                          className="h-2"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Target className="h-4 w-4 mr-1" />
+                        {selectedProjectData.backers} backers
                       </div>
                     </div>
                   </CardContent>
@@ -220,7 +194,7 @@ const SendFunds = () => {
 
           {/* Donation Details */}
           <section>
-            <h2 className="text-2xl font-semibold mb-4">Donation Details</h2>
+            <h2 className="text-2xl font-semibold mb-4">Send Details</h2>
             
             <div className="grid gap-6">
               <div>
@@ -237,10 +211,10 @@ const SendFunds = () => {
               </div>
 
               <div>
-                <Label htmlFor="reason">Reason for Donation</Label>
+                <Label htmlFor="reason">Funding Purpose</Label>
                 <Textarea
                   id="reason"
-                  placeholder="Enter the reason for your donation (e.g., Emergency relief, Education support, etc.)"
+                  placeholder="Enter the purpose of your funding (e.g., Project milestone, Emergency support, etc.)"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   className="mt-1"
@@ -255,13 +229,13 @@ const SendFunds = () => {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Please connect your Pera Wallet to make donations. You can connect your wallet from the header.
+                Please connect your Pera Wallet to distribute funds. You can connect your wallet from the header.
               </AlertDescription>
             </Alert>
           )}
 
           {/* Review Transaction */}
-          {selectedOrg && amount && reason.trim() && (
+          {selectedProject && amount && reason.trim() && (
             <section>
               <h2 className="text-2xl font-semibold mb-4">Review Transaction</h2>
               
@@ -269,9 +243,16 @@ const SendFunds = () => {
                 <CardContent className="p-6">
                   <div className="space-y-4">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Recipient</span>
+                      <span className="text-muted-foreground">Project</span>
                       <span className="font-medium">
-                        {organizations.find(org => org.id === selectedOrg)?.name}
+                        {selectedProjectData?.title}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Organization</span>
+                      <span className="font-medium">
+                        {selectedProjectData?.organization}
                       </span>
                     </div>
                     
@@ -281,7 +262,7 @@ const SendFunds = () => {
                     </div>
                     
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Reason</span>
+                      <span className="text-muted-foreground">Purpose</span>
                       <span className="font-medium text-right max-w-xs">{reason}</span>
                     </div>
                     
@@ -302,7 +283,7 @@ const SendFunds = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">To</span>
                       <span className="font-medium text-xs">
-                        {NGO_WALLETS[selectedOrg as keyof typeof NGO_WALLETS]?.slice(0, 6)}...{NGO_WALLETS[selectedOrg as keyof typeof NGO_WALLETS]?.slice(-4)}
+                        {selectedProjectData?.wallet.slice(0, 6)}...{selectedProjectData?.wallet.slice(-4)}
                       </span>
                     </div>
                   </div>
@@ -321,7 +302,7 @@ const SendFunds = () => {
                     Processing Transaction...
                   </>
                 ) : (
-                  "Send Donation"
+                  "Send Funds"
                 )}
               </Button>
             </section>
@@ -332,4 +313,4 @@ const SendFunds = () => {
   );
 };
 
-export default SendFunds;
+export default SendFundsPublic;
