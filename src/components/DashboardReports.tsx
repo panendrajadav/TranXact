@@ -155,7 +155,7 @@ const DashboardReports = ({ isPublic = false }: Props) => {
   // Get donations with project allocations for private users
   const privateDonations = donations.map(donation => ({
     ...donation,
-    allocations: donation.allocations.map(allocation => {
+    allocations: donation.allocations?.map(allocation => {
       const project = projects.find(p => p.id === allocation.projectId);
       return {
         project: allocation.projectName,
@@ -167,8 +167,12 @@ const DashboardReports = ({ isPublic = false }: Props) => {
           location: project.location
         } : null
       };
-    })
+    }) || []
   }));
+
+  // Debug logging
+  console.log('Donations in reports:', donations);
+  console.log('Private donations processed:', privateDonations);
 
   if (isPublic) {
     return (
@@ -267,7 +271,33 @@ const DashboardReports = ({ isPublic = false }: Props) => {
     <div className="space-y-8">
       {/* Donation Tracking */}
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Donation Tracking</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-semibold">Donation Tracking</h2>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => console.log('Current donations:', donations)}
+              >
+                Debug Log
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  const { clearDonations } = require('@/contexts/DonationProvider');
+                  if (window.confirm('Clear all donations? This cannot be undone.')) {
+                    localStorage.removeItem('tranxact-donations');
+                    window.location.reload();
+                  }
+                }}
+              >
+                Clear Data
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="space-y-4">
           {privateDonations.length === 0 ? (
             <Card>

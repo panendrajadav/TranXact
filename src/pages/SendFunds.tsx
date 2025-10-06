@@ -26,48 +26,29 @@ const SendFunds = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const NGO_WALLETS = {
-    'global-relief': '6JSEKQ6JGA56ECOZ25ABSLJVKLDOME3KUGDFKPEQCA3LCNMA5E2ZZNC23E',
-    'childrens-health': 'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ',
-    'environmental-protection': 'B6JK2QA7LUPS2S7H3Y3L33ROXUFSDJICDJZC4FUJMRJWBXDQJVKL2LCGJM',
-    'animal-welfare': 'PC26UP77QZPOUSTG4O4NG4GOQ3KXFBZ2UPF67XN5JOAYSW4CUKG6ML5VMA',
-    'disaster-relief': 'TBEJZ26MKWXQXTQW5K43DN7NQQA6OGC76DHYIPXDQMDPZF4R3HKFMNZSDI'
+    'asha-foundation': 'DYT6HEX5FQY7F26E3CUIRUFP6RQKKXKOMZLXUW5FKITZE74YJWTFNTWDPU',
+    'mb-foundation': 'J7LJIQ7JK3Q6OWMUSW6DWIYC3HRNLSXGL5KQ5TFJXILFKXDURSE2PSAFOI',
+    'united-nations': 'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ'
   } as const;
 
   const organizations = [
     {
-      id: "global-relief",
-      name: "Global Relief Fund",
-      description: "TechCorp's donation of 2,500 ALGO helped provide essential supplies to 2,000 families affected by the recent earthquake.",
-      image: "/api/placeholder/300/200",
-      category: "Disaster Relief"
+      id: "asha-foundation",
+      name: "Asha Foundation",
+      description: "Supporting education and healthcare initiatives for underprivileged communities.",
+      category: "Education & Healthcare"
     },
     {
-      id: "childrens-health",
-      name: "Children's Health Initiative",
-      description: "TechCorp's donation of 1,250 ALGO contributed to the vaccination of 1,000 children against preventable diseases.",
-      image: "/api/placeholder/300/200",
-      category: "Healthcare"
+      id: "mb-foundation",
+      name: "MB Foundation",
+      description: "Focused on community development and social welfare programs.",
+      category: "Community Development"
     },
     {
-      id: "environmental-protection",
-      name: "Environmental Protection Alliance",
-      description: "TechCorp's donation of 750 ALGO supported the planting of 4,000 trees in a reforestation project.",
-      image: "/api/placeholder/300/200",
-      category: "Environment"
-    },
-    {
-      id: "animal-welfare",
-      name: "Animal Welfare Society",
-      description: "TechCorp's donation of 375 ALGO helped provide shelter and care for 600 rescued animals.",
-      image: "/api/placeholder/300/200",
-      category: "Animal Welfare"
-    },
-    {
-      id: "disaster-relief",
-      name: "Disaster Relief Coalition",
-      description: "TechCorp's donation of 2,000 ALGO assisted in providing temporary housing for 1,200 individuals displaced by the recent floods.",
-      image: "/api/placeholder/300/200",
-      category: "Disaster Relief"
+      id: "united-nations",
+      name: "United Nations",
+      description: "Global humanitarian and development organization working for peace and human rights.",
+      category: "International Aid"
     }
   ];
 
