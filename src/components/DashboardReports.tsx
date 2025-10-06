@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@/contexts/WalletProvider";
 import { TransactionService } from "@/lib/transactionService";
 import { useProjects } from "@/contexts/ProjectProvider";
+import { useDonations } from "@/contexts/DonationProvider";
+import { useAuth } from "@/contexts/AuthProvider";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 import {
   ResponsiveContainer,
@@ -28,6 +30,8 @@ const DashboardReports = ({ isPublic = false }: Props) => {
 
   const { account } = useWallet();
   const { projects } = useProjects();
+  const { donations } = useDonations();
+  const { userType } = useAuth();
 
   // projectData will be derived from real transactions when isPublic
   const [projectData, setProjectData] = useState(() => projects.map(p => ({
@@ -148,21 +152,23 @@ const DashboardReports = ({ isPublic = false }: Props) => {
   const pieData = projectData.map(p => ({ name: p.name, value: p.funded, color: p.color }));
   const barData = projectData.map(p => ({ name: p.name, Funded: p.funded, Spent: p.spent }));
 
-  // Fallback donations (private view)
-  const donations = [
-    {
-      amount: "125.5 ALGO",
-      description: "School books purchased for 100 children",
-      category: "Education",
-      status: "active"
-    },
-    {
-      amount: "50.2 ALGO",
-      description: "Medical supplies for underserved communities",
-      category: "Healthcare",
-      status: "active"
-    }
-  ];
+  // Get donations with project allocations for private users
+  const privateDonations = donations.map(donation => ({
+    ...donation,
+    allocations: donation.allocations.map(allocation => {
+      const project = projects.find(p => p.id === allocation.projectId);
+      return {
+        project: allocation.projectName,
+        amount: allocation.amount,
+        status: allocation.status,
+        projectDetails: project ? {
+          organization: project.organization,
+          category: project.category,
+          location: project.location
+        } : null
+      };
+    })
+  }));
 
   if (isPublic) {
     return (
@@ -256,32 +262,73 @@ const DashboardReports = ({ isPublic = false }: Props) => {
     );
   }
 
-  // Default (private) view remains similar to previous behavior
+  // Default (private) view with project allocation tracking
   return (
     <div className="space-y-8">
       {/* Donation Tracking */}
       <section>
         <h2 className="text-2xl font-semibold mb-4">Donation Tracking</h2>
         <div className="space-y-4">
-          {donations.map((donation, index) => (
-            <Card key={index}>
+          {privateDonations.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">💰</span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No Donations Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  You haven't made any donations yet. Start making a difference by supporting organizations and projects.
+                </p>
+                <Button onClick={() => window.location.href = '/send'}>
+                  Make Your First Donation
+                </Button>
+              </CardContent>
+            </Card>
+          ) : privateDonations.map((donation) => (
+            <Card key={donation.id}>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                      <span className="text-sm font-medium">💰</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-sm font-medium">💰</span>
+                      </div>
+                      <div>
+                        <div className="font-medium">{donation.amount} ALGO to {donation.organizationName}</div>
+                        <div className="text-sm text-muted-foreground">Your reason: {donation.reason}</div>
+                        <div className="text-xs text-muted-foreground">{new Date(donation.date).toLocaleDateString()}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-medium">Donation of {donation.amount}</div>
-                      <div className="text-sm text-muted-foreground">{donation.description}</div>
-                      <Badge variant="secondary" className="text-xs mt-1">
-                        {donation.category}
-                      </Badge>
+                    <Button variant="outline" size="sm" onClick={() => setShowDialog(true)}>
+                      View on Blockchain
+                    </Button>
+                  </div>
+                  
+                  <div className="ml-14">
+                    <div className="text-sm font-medium mb-2">Fund Allocation by Organization:</div>
+                    <div className="space-y-2">
+                      {donation.allocations.length > 0 ? donation.allocations.map((allocation, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                          <div>
+                            <div className="text-sm font-medium">{allocation.project}</div>
+                            {allocation.projectDetails && (
+                              <div className="text-xs text-muted-foreground">
+                                {allocation.projectDetails.organization} • {allocation.projectDetails.category}
+                              </div>
+                            )}
+                            <Badge variant={allocation.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
+                              {allocation.status}
+                            </Badge>
+                          </div>
+                          <div className="text-sm font-medium">{allocation.amount} ALGO</div>
+                        </div>
+                      )) : (
+                        <div className="p-2 bg-muted/50 rounded text-sm text-muted-foreground text-center">
+                          Not yet allocated to specific projects
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setShowDialog(true)}>
-                    View Proofs
-                  </Button>
                 </div>
               </CardContent>
             </Card>

@@ -8,6 +8,7 @@ import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
 import { ManagePrograms } from "@/components/ManagePrograms";
 import { AllocateToProjects } from "@/components/AllocateToProjects";
+import { useProjects } from "@/contexts/ProjectProvider";
 
 export function PublicDashboard() {
   const { wallet, account, isConnected } = useWallet();
@@ -38,22 +39,12 @@ export function PublicDashboard() {
     { label: "Lives Impacted", value: "5,000+" }
   ];
 
-  const fundingPrograms = [
-    {
-      amount: "2,500 ALGO",
-      description: "Education Infrastructure Program",
-      category: "Education",
-      ngos: 5,
-      status: "Active"
-    },
-    {
-      amount: "3,750 ALGO", 
-      description: "Healthcare Access Initiative",
-      category: "Healthcare",
-      ngos: 8,
-      status: "Active"
-    }
-  ];
+  const { projects } = useProjects();
+  
+  // Get top 2 funded projects
+  const topFundedProjects = projects
+    .sort((a, b) => b.raised - a.raised)
+    .slice(0, 2);
 
   return (
     <div className="space-y-6">
@@ -116,34 +107,34 @@ export function PublicDashboard() {
       </section>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Active Funding Programs</h2>
+        <h2 className="text-2xl font-semibold mb-4">Top Funded Projects</h2>
         <div className="space-y-4">
-          {fundingPrograms.map((program, index) => (
-            <Card key={index}>
+          {topFundedProjects.map((project, index) => (
+            <Card key={project.id}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                      <span className="text-sm font-medium">🏛️</span>
+                      <span className="text-sm font-medium">🎯</span>
                     </div>
                     <div>
-                      <div className="font-medium">{program.description}</div>
+                      <div className="font-medium">{project.title}</div>
                       <div className="text-sm text-muted-foreground">
-                        {program.amount} • {program.ngos} NGOs participating
+                        {project.raised.toLocaleString()} ALGO raised • {project.backers} backers
                       </div>
                       <div className="flex gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs">
-                          {program.category}
+                          {project.category}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
-                          {program.status}
+                          Active
                         </Badge>
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
                     <Button variant="outline" size="sm">
-                      View Program
+                      View Project
                     </Button>
                   </div>
                 </div>

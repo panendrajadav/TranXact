@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Plus, MapPin, Target, Calendar, Trash2 } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectProvider";
+import { useWallet } from "@/contexts/WalletProvider";
+import { AlgorandService } from "@/lib/algorand";
+import { APP_CONFIG } from "@/lib/config";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 interface Project {
@@ -30,6 +33,8 @@ export function ManagePrograms() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const { projects, addProject, removeProject } = useProjects();
+  const { wallet } = useWallet();
+  const [walletBalances, setWalletBalances] = useState<{[key: string]: number}>({});
 
 
   const [newProject, setNewProject] = useState({
@@ -42,20 +47,57 @@ export function ManagePrograms() {
     duration: ""
   });
 
+  // Organization wallet addresses (same as in SendFunds)
+  const NGO_WALLETS = {
+    'Global Relief Fund': '6JSEKQ6JGA56ECOZ25ABSLJVKLDOME3KUGDFKPEQCA3LCNMA5E2ZZNC23E',
+    'Children\'s Health Initiative': 'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ',
+    'Environmental Protection Alliance': 'B6JK2QA7LUPS2S7H3Y3L33ROXUFSDJICDJZC4FUJMRJWBXDQJVKL2LCGJM',
+    'Animal Welfare Society': 'PC26UP77QZPOUSTG4O4NG4GOQ3KXFBZ2UPF67XN5JOAYSW4CUKG6ML5VMA',
+    'Disaster Relief Coalition': 'TBEJZ26MKWXQXTQW5K43DN7NQQA6OGC76DHYIPXDQMDPZF4R3HKFMNZSDI',
+    'TranXact Foundation': '6JSEKQ6JGA56ECOZ25ABSLJVKLDOME3KUGDFKPEQCA3LCNMA5E2ZZNC23E' // Default
+  } as const;
+
+  // Fetch wallet balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (!wallet) return;
+      
+      const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+      const balances: {[key: string]: number} = {};
+      
+      for (const [orgName, address] of Object.entries(NGO_WALLETS)) {
+        try {
+          const balance = await algoService.getBalance(address);
+          balances[address] = balance;
+        } catch (error) {
+          console.error(`Failed to fetch balance for ${orgName}:`, error);
+          balances[address] = 0;
+        }
+      }
+      
+      setWalletBalances(balances);
+    };
+    
+    fetchBalances();
+  }, [wallet, projects]);
+
   const handleCreateProject = () => {
     if (!newProject.title || !newProject.target) return;
+
+    const orgName = newProject.organization || "TranXact Foundation";
+    const walletAddress = NGO_WALLETS[orgName as keyof typeof NGO_WALLETS] || NGO_WALLETS['TranXact Foundation'];
 
     const project = {
       id: Date.now().toString(),
       title: newProject.title,
-      organization: newProject.organization || "TranXact Foundation",
+      organization: orgName,
       description: newProject.description,
       category: newProject.category,
       location: newProject.location,
       target: parseInt(newProject.target),
       raised: 0,
       backers: 0,
-      wallet: `WALLET_${Date.now()}`
+      wallet: walletAddress
     };
 
     addProject(project);
@@ -117,12 +159,19 @@ export function ManagePrograms() {
               </div>
               <div>
                 <Label htmlFor="organization">Organization</Label>
-                <Input
-                  id="organization"
-                  value={newProject.organization}
-                  onChange={(e) => setNewProject({...newProject, organization: e.target.value})}
-                  placeholder="Organization name"
-                />
+                <Select value={newProject.organization} onValueChange={(value) => setNewProject({...newProject, organization: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select organization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Global Relief Fund">Global Relief Fund</SelectItem>
+                    <SelectItem value="Children's Health Initiative">Children's Health Initiative</SelectItem>
+                    <SelectItem value="Environmental Protection Alliance">Environmental Protection Alliance</SelectItem>
+                    <SelectItem value="Animal Welfare Society">Animal Welfare Society</SelectItem>
+                    <SelectItem value="Disaster Relief Coalition">Disaster Relief Coalition</SelectItem>
+                    <SelectItem value="TranXact Foundation">TranXact Foundation</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -218,13 +267,22 @@ export function ManagePrograms() {
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="font-medium">{project.raised.toLocaleString()} ALGO</span>
+                  <span className="font-medium">{(walletBalances[project.wallet] || 0).toFixed(2)} ALGO</span>
                   <span className="text-muted-foreground">
-                    of {project.target.toLocaleString()} ALGO
+                    of {(() => {
+                      const baseTarget = project.target > 100 ? (project.target > 1000 ? 10 : 5) : project.target;
+                      const currentFunded = walletBalances[project.wallet] || 0;
+                      return currentFunded >= (baseTarget - 5) ? baseTarget + 5 : baseTarget;
+                    })()} ALGO
                   </span>
                 </div>
                 <Progress 
-                  value={(project.raised / project.target) * 100} 
+                  value={(() => {
+                    const baseTarget = project.target > 100 ? (project.target > 1000 ? 10 : 5) : project.target;
+                    const currentFunded = walletBalances[project.wallet] || 0;
+                    const adjustedTarget = currentFunded >= (baseTarget - 5) ? baseTarget + 5 : baseTarget;
+                    return (currentFunded / adjustedTarget) * 100;
+                  })()} 
                   className="h-2"
                 />
               </div>

@@ -12,7 +12,7 @@ import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 export function AllocateToProjects() {
   const { donations, addAllocation } = useDonations();
-  const { projects } = useProjects();
+  const { projects, updateProjectFunding } = useProjects();
   const [selectedDonation, setSelectedDonation] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
   const [amount, setAmount] = useState("");
@@ -44,10 +44,14 @@ export function AllocateToProjects() {
 
     addAllocation(selectedDonation, {
       projectName: project.title,
+      projectId: selectedProject,
       amount: allocAmount,
       status: 'in-progress',
       date: new Date().toISOString()
     });
+
+    // Update project funding
+    updateProjectFunding(selectedProject, allocAmount);
 
     toast({
       title: "Allocation Successful",
