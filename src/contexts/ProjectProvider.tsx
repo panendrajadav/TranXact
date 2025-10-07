@@ -106,6 +106,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     ));
   };
 
+  // NOTE: avoid exposing internal updaters on window; use the context hook `useProjects()` from components.
+
   const addProject = (project: Omit<Project, 'id'> & { id: string }) => {
     setProjects(prev => [project, ...prev]);
   };

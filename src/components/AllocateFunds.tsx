@@ -9,12 +9,13 @@ import { Progress } from "@/components/ui/progress";
 import { useDonationTracking } from "@/contexts/DonationTrackingProvider";
 import { useProjects } from "@/contexts/ProjectProvider";
 import { useWallet } from "@/contexts/WalletProvider";
+import { AlgorandService } from "@/lib/algorand";
 import { toast } from "@/components/ui/use-toast";
 
 export function AllocateFunds() {
   const { donations, addAllocation } = useDonationTracking();
-  const { projects } = useProjects();
-  const { account } = useWallet();
+  const { projects, updateProjectFunding } = useProjects();
+  const { account, wallet } = useWallet();
   const [selectedDonation, setSelectedDonation] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
   const [allocationAmount, setAllocationAmount] = useState("");
@@ -55,7 +56,27 @@ export function AllocateFunds() {
       return;
     }
 
-    addAllocation({
+    // Ensure project has a wallet address
+    let projectWallet = project.wallet?.trim();
+
+    if (!projectWallet || projectWallet.length === 0) {
+      // ask user for wallet address (simple prompt for now)
+      const provided = window.prompt(`Project "${project.title}" does not have a wallet address. Please provide Algorand wallet address:`);
+      if (!provided) {
+        toast({ title: "Missing Project Wallet", description: `Allocation aborted — project wallet required`, variant: "destructive" });
+        return;
+      }
+      projectWallet = provided.trim();
+    }
+
+    // Validate Algorand address
+    if (!AlgorandService.isValidAddress(projectWallet)) {
+      toast({ title: "Invalid Address", description: `Provided project wallet address is not a valid Algorand address`, variant: "destructive" });
+      return;
+    }
+
+    // Add allocation in-progress entry
+    const allocationEntry = {
       donationId: selectedDonation,
       projectId: selectedProject,
       projectName: project.title,
@@ -63,16 +84,40 @@ export function AllocateFunds() {
       status: 'in-progress',
       date: new Date().toISOString(),
       transactionId: `ALLOC_${Date.now()}`
-    });
+    };
 
-    toast({
-      title: "Allocation Successful",
-      description: `${amount} ALGO allocated to ${project.title}`,
-    });
+    addAllocation(allocationEntry);
 
-    setSelectedDonation("");
-    setSelectedProject("");
-    setAllocationAmount("");
+    // Attempt on-chain transfer using connected wallet
+    (async () => {
+      try {
+        // create algorand service using wallet from top-level hook
+        const algoService = new AlgorandService(wallet, true);
+
+        // convert amount to microAlgos
+        const micro = AlgorandService.algoToMicroAlgos(amount);
+
+        const txId = await algoService.sendPayment({
+          from: (account as string) || '',
+          to: projectWallet as string,
+          amount: micro,
+          note: `Allocation to project ${project.title} from donation ${donation.id}`
+        });
+
+        // Update project funding using context hook
+        updateProjectFunding(project.id, amount);
+
+        toast({ title: "Allocation Completed", description: `${amount} ALGO sent to ${project.title} (tx: ${txId})` });
+      } catch (err: unknown) {
+        console.error('Allocation transfer failed', err);
+        const message = err instanceof Error ? err.message : String(err);
+        toast({ title: "Allocation Failed", description: message || 'Transaction failed', variant: 'destructive' });
+      } finally {
+        setSelectedDonation("");
+        setSelectedProject("");
+        setAllocationAmount("");
+      }
+    })();
   };
 
   return (
