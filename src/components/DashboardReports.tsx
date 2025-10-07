@@ -148,9 +148,32 @@ const DashboardReports = ({ isPublic = false }: Props) => {
     load();
   }, [isPublic, account, projects]);
 
+  // Calculate funding data from donations for public view
+  const projectFundingData = projects.map((project, idx) => {
+    // Calculate total funded by private users to this project
+    const totalFunded = donations.reduce((sum, donation) => {
+      const projectAllocations = donation.allocations?.filter(alloc => 
+        alloc.projectName === project.title
+      ) || [];
+      return sum + projectAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
+    }, 0);
+    
+    return {
+      name: project.title,
+      funded: totalFunded,
+      allocated: totalFunded, // In this context, funded = allocated
+      color: `hsl(${idx * 137.5 % 360}, 70%, 50%)`
+    };
+  });
+  
   // Data formats for charts
-  const pieData = projectData.map(p => ({ name: p.name, value: p.funded, color: p.color }));
-  const barData = projectData.map(p => ({ name: p.name, Funded: p.funded, Spent: p.spent }));
+  const pieData = isPublic ? 
+    projectFundingData.map(p => ({ name: p.name, value: p.funded, color: p.color })) :
+    projectData.map(p => ({ name: p.name, value: p.funded, color: p.color }));
+    
+  const barData = isPublic ?
+    projectFundingData.map(p => ({ name: p.name, Funded: p.funded, Allocated: p.allocated })) :
+    projectData.map(p => ({ name: p.name, Funded: p.funded, Spent: p.spent }));
 
   // Get donations with project allocations for private users
   const privateDonations = donations.map(donation => ({
@@ -182,22 +205,22 @@ const DashboardReports = ({ isPublic = false }: Props) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground">Total Funded</div>
-                <div className="text-2xl font-bold">{totalFunded.toLocaleString()} ALGO</div>
+                <div className="text-sm text-muted-foreground">Total Private Funding</div>
+                <div className="text-2xl font-bold">{projectFundingData.reduce((sum, p) => sum + p.funded, 0).toFixed(2)} ALGO</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground">Total Spent</div>
-                <div className="text-2xl font-bold text-destructive">{totalSpent.toLocaleString()} ALGO</div>
+                <div className="text-sm text-muted-foreground">Total Allocated</div>
+                <div className="text-2xl font-bold text-orange-600">{projectFundingData.reduce((sum, p) => sum + p.allocated, 0).toFixed(2)} ALGO</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground">Remaining</div>
-                <div className="text-2xl font-bold text-primary">{(totalFunded - totalSpent).toLocaleString()} ALGO</div>
+                <div className="text-sm text-muted-foreground">Active Projects</div>
+                <div className="text-2xl font-bold text-primary">{projects.length}</div>
               </CardContent>
             </Card>
           </div>
@@ -208,8 +231,8 @@ const DashboardReports = ({ isPublic = false }: Props) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Project Contribution (Pie)</CardTitle>
-                <CardDescription>Share of funded amounts per project</CardDescription>
+                <CardTitle>Private User Funding by Project</CardTitle>
+                <CardDescription>How much private users funded to each project</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="h-72">
@@ -225,13 +248,13 @@ const DashboardReports = ({ isPublic = false }: Props) => {
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-4 space-y-2">
-                  {projectData.map((p, idx) => (
+                  {(isPublic ? projectFundingData : projectData).map((p, idx) => (
                     <div key={idx} className="flex items-center justify-between">
                       <div className="flex items-center">
                         <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: p.color }} />
                         <span className="text-sm">{p.name}</span>
                       </div>
-                      <span className="text-sm font-medium">{p.funded.toLocaleString()} ALGO</span>
+                      <span className="text-sm font-medium">{p.funded.toFixed(2)} ALGO</span>
                     </div>
                   ))}
                 </div>
@@ -240,8 +263,8 @@ const DashboardReports = ({ isPublic = false }: Props) => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Funded vs Spent (Bar)</CardTitle>
-                <CardDescription>Comparison of funding vs spending per project</CardDescription>
+                <CardTitle>Funded vs Allocated (Bar)</CardTitle>
+                <CardDescription>Comparison of funded vs allocated amounts per project</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="h-72">
@@ -252,7 +275,7 @@ const DashboardReports = ({ isPublic = false }: Props) => {
                       <YAxis />
                       <Tooltip formatter={(value: number) => `${value.toLocaleString()} ALGO`} />
                       <Bar dataKey="Funded" fill="hsl(147 86% 40%)" />
-                      <Bar dataKey="Spent" fill="hsl(37 100% 55%)" />
+                      <Bar dataKey="Allocated" fill="hsl(37 100% 55%)" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
