@@ -137,7 +137,7 @@ const Explore = () => {
               </Card>
               <Card>
                 <CardContent className="p-6">
-                  <div className="text-3xl font-bold text-primary">$2.5M</div>
+                  <div className="text-3xl font-bold text-primary">2.5M ALGO</div>
                   <div className="text-muted-foreground">Total Donated</div>
                 </CardContent>
               </Card>

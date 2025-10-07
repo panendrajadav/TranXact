@@ -6,22 +6,33 @@ import Header from "@/components/Header";
 import { Calendar, MapPin, Target } from "lucide-react";
 import { useState } from "react";
 import { useProjects } from "@/contexts/ProjectProvider";
+import { useDonations } from "@/contexts/DonationProvider";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 const Projects = () => {
   const [showDialog, setShowDialog] = useState(false);
   const { projects } = useProjects();
+  const { donations } = useDonations();
 
-  const projectsWithDays = projects.map(project => ({
-    ...project,
-    daysLeft: project.id === "medical-supplies" ? 0 : Math.floor(Math.random() * 60) + 10,
-    status: project.id === "medical-supplies" ? "completed" : "active",
-    image: project.id === "rural-school" ? "src/assets/children1.jpg" :
-           project.id === "clean-water" ? "src/assets/water1.jpg" :
-           project.id === "medical-supplies" ? "src/assets/medical.jpg" :
-           project.id === "reforestation" ? "src/assets/reforestation.webp" :
-           "src/assets/nutrition.png"
-  }));
+  // Calculate actual allocated funds for each project
+  const projectsWithAllocations = projects.map(project => {
+    const allocatedAmount = donations.reduce((sum, donation) => {
+      const projectAllocations = donation.allocations?.filter(alloc => 
+        alloc.projectName === project.title
+      ) || [];
+      return sum + projectAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
+    }, 0);
+    
+    return {
+      ...project,
+      raised: allocatedAmount,
+      daysLeft: Math.floor(Math.random() * 60) + 10,
+      status: allocatedAmount >= project.target ? "completed" : "active",
+      image: "src/assets/children.jpg"
+    };
+  });
+
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -63,19 +74,19 @@ const Projects = () => {
           <div className="grid md:grid-cols-3 gap-6 mb-12">
             <Card>
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary">45</div>
+                <div className="text-3xl font-bold text-primary">{projects.length}</div>
                 <div className="text-muted-foreground">Active Projects</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary">300K ALGO</div>
+                <div className="text-3xl font-bold text-primary">{projectsWithAllocations.reduce((sum, p) => sum + p.raised, 0).toFixed(0)} ALGO</div>
                 <div className="text-muted-foreground">Funds Raised</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary">15K+</div>
+                <div className="text-3xl font-bold text-primary">{projectsWithAllocations.reduce((sum, p) => sum + p.backers, 0)}</div>
                 <div className="text-muted-foreground">Total Backers</div>
               </CardContent>
             </Card>
@@ -83,7 +94,7 @@ const Projects = () => {
 
           {/* Projects Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projectsWithDays.map((project, index) => (
+            {projectsWithAllocations.map((project, index) => (
               <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow">
                 <div className="h-48 rounded-t-lg overflow-hidden relative">
                   <img src={project.image} alt={project.title} className="object-cover w-full h-full" />
