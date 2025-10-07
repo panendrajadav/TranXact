@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useDonations } from "@/contexts/DonationProvider";
 import { useProjects } from "@/contexts/ProjectProvider";
+import { useWallet } from "@/contexts/WalletProvider";
+import { AlgorandService } from "@/lib/algorand";
 import { toast } from "@/components/ui/use-toast";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
@@ -17,13 +19,24 @@ export function AllocateToProjects() {
   const [selectedProject, setSelectedProject] = useState("");
   const [amount, setAmount] = useState("");
   const [showDialog, setShowDialog] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { wallet, account, isConnected } = useWallet();
 
   const availableDonations = donations.filter(d => {
     const allocated = d.allocations.reduce((sum, a) => sum + a.amount, 0);
     return d.amount > allocated;
   });
 
-  const handleAllocate = () => {
+  const handleAllocate = async () => {
+    if (!isConnected || !account) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to allocate funds",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!selectedDonation || !selectedProject || !amount) return;
 
     const donation = donations.find(d => d.id === selectedDonation);
@@ -42,25 +55,62 @@ export function AllocateToProjects() {
       return;
     }
 
-    addAllocation(selectedDonation, {
-      projectName: project.title,
-      projectId: selectedProject,
-      amount: allocAmount,
-      status: 'in-progress',
-      date: new Date().toISOString()
-    });
+    if (!project.wallet) {
+      toast({
+        title: "No Wallet Address",
+        description: `Project ${project.title} does not have a wallet address configured`,
+        variant: "destructive"
+      });
+      return;
+    }
 
-    // Update project funding
-    updateProjectFunding(selectedProject, allocAmount);
+    setIsProcessing(true);
 
-    toast({
-      title: "Allocation Successful",
-      description: `${allocAmount} ALGO allocated to ${project.title}`
-    });
+    try {
+      const algoService = new AlgorandService(wallet, true);
+      
+      toast({
+        title: "Processing Transaction",
+        description: "Please confirm the transaction in your wallet"
+      });
 
-    setSelectedDonation("");
-    setSelectedProject("");
-    setAmount("");
+      // Transfer funds to project wallet
+      const txnId = await algoService.sendPayment({
+        from: account,
+        to: project.wallet,
+        amount: AlgorandService.algoToMicroAlgos(allocAmount),
+        note: `Fund allocation to ${project.title}`
+      });
+
+      addAllocation(selectedDonation, {
+        projectName: project.title,
+        projectId: selectedProject,
+        amount: allocAmount,
+        status: 'completed',
+        date: new Date().toISOString()
+      });
+
+      // Update project funding
+      updateProjectFunding(selectedProject, allocAmount);
+
+      toast({
+        title: "Allocation Successful",
+        description: `${allocAmount} ALGO transferred to ${project.title}. Tx: ${txnId.slice(0, 8)}...`
+      });
+
+      setSelectedDonation("");
+      setSelectedProject("");
+      setAmount("");
+    } catch (error: any) {
+      console.error('Allocation failed:', error);
+      toast({
+        title: "Allocation Failed",
+        description: error.message || "Failed to transfer funds to project",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -137,9 +187,14 @@ export function AllocateToProjects() {
               />
             </div>
 
-            <Button onClick={handleAllocate} className="w-full">
-              Allocate Funds
+            <Button onClick={handleAllocate} className="w-full" disabled={isProcessing || !isConnected}>
+              {isProcessing ? "Processing..." : "Allocate Funds"}
             </Button>
+            {!isConnected && (
+              <p className="text-sm text-muted-foreground text-center">
+                Connect your wallet to allocate funds
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
