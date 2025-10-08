@@ -11,7 +11,7 @@ const Explore = () => {
       description: "Supporting education in rural areas by providing school supplies and infrastructure",
       category: "Education",
       impact: "2,500 students helped",
-      funding: "$45,000 raised",
+      funding: "45,000 ALGO raised",
       image: "src/assets/education.jpg"
     },
     {
@@ -19,7 +19,7 @@ const Explore = () => {
       description: "Providing medical supplies and healthcare services to underserved communities",
       category: "Healthcare", 
       impact: "10,000 patients treated",
-      funding: "$78,000 raised",
+      funding: "78,000 ALGO raised",
       image: "src/assets/healthcare.jpg"
     },
     {
@@ -27,7 +27,7 @@ const Explore = () => {
       description: "Building wells and water purification systems in communities without clean water access",
       category: "Environment",
       impact: "50 wells built",
-      funding: "$120,000 raised",
+      funding: "120,000 ALGO raised",
       image: "src/assets/water.jpg"
     },
     {
@@ -35,7 +35,7 @@ const Explore = () => {
       description: "Protecting natural habitats and promoting sustainable practices",
       category: "Environment",
       impact: "5,000 trees planted",
-      funding: "$32,000 raised",
+      funding: "32,000 ALGO raised",
       image: "src/assets/environment.jpeg"
     },
     {
@@ -43,7 +43,7 @@ const Explore = () => {
       description: "Providing emergency aid and support to communities affected by natural disasters",
       category: "Disaster Relief",
       impact: "1,200 families helped",
-      funding: "$95,000 raised",
+      funding: "95,000 ALGO raised",
       image: "src/assets/disaster.jpg"
     },
     {
@@ -51,7 +51,7 @@ const Explore = () => {
       description: "Improving children's health through vaccination programs and nutrition support",
       category: "Healthcare",
       impact: "3,000 children vaccinated",
-      funding: "$56,000 raised",
+      funding: "56,000 ALGO raised",
       image: "src/assets/children.jpg"
     }
   ];
@@ -137,7 +137,7 @@ const Explore = () => {
               </Card>
               <Card>
                 <CardContent className="p-6">
-                  <div className="text-3xl font-bold text-primary">$2.5M</div>
+                  <div className="text-3xl font-bold text-primary">2.5M ALGO</div>
                   <div className="text-muted-foreground">Total Donated</div>
                 </CardContent>
               </Card>
