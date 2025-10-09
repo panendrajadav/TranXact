@@ -19,6 +19,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
+  const [showDevDialog, setShowDevDialog] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -51,9 +52,8 @@ const Login = () => {
   const isPublicLogin = email === PUBLIC_DONOR.email && password === PUBLIC_DONOR.password;
   const isLoginEnabled = (isPrivateLogin || isPublicLogin) && isConnected;
 
-  const handleSocialLogin = (provider: string) => {
-    // Simulate social login
-    navigate('/dashboard');
+  const handleSocialLogin = () => {
+    setShowDevDialog(true);
   };
 
   return (
@@ -125,7 +125,7 @@ const Login = () => {
               type="button" 
               variant="outline" 
               className="w-full flex items-center justify-center text-base py-3"
-              onClick={() => handleSocialLogin('google')}
+              onClick={handleSocialLogin}
             >
               <img src="src/assets/google-logo.png" alt="Google" className="w-5 h-5 mr-3" />
               Sign in with Google
@@ -135,7 +135,7 @@ const Login = () => {
               type="button" 
               variant="outline" 
               className="w-full flex items-center justify-center text-base py-3"
-              onClick={() => handleSocialLogin('apple')}
+              onClick={handleSocialLogin}
             >
               <img src="src/assets/apple-logo.png" alt="Apple" className="w-5 h-5 mr-3" />
               Sign in with Apple
@@ -205,6 +205,7 @@ const Login = () => {
       </div>
 
       <UnderDevelopmentDialog open={showDialog} onClose={() => setShowDialog(false)} />
+      <UnderDevelopmentDialog open={showDevDialog} onClose={() => setShowDevDialog(false)} />
     </div>
   );
 };
