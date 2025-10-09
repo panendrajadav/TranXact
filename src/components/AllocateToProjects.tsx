@@ -11,6 +11,7 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { toast } from "@/components/ui/use-toast";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
+import { allocationService } from "@/lib/allocationService";
 
 export function AllocateToProjects() {
   const { donations, addAllocation } = useDonations();
@@ -90,6 +91,21 @@ export function AllocateToProjects() {
         date: new Date().toISOString()
       });
 
+      // Store allocation in Cosmos DB
+      try {
+        await allocationService.createAllocation({
+          projectId: selectedProject,
+          projectName: project.title,
+          amount: allocAmount,
+          purpose: `Fund allocation to ${project.title}`,
+          allocatedBy: account,
+          walletAddress: account,
+          status: 'completed'
+        });
+      } catch (dbError) {
+        console.error('Failed to store allocation in database:', dbError);
+      }
+
       // Update project funding
       updateProjectFunding(selectedProject, allocAmount);
 
@@ -103,9 +119,19 @@ export function AllocateToProjects() {
       setAmount("");
     } catch (error: any) {
       console.error('Allocation failed:', error);
+      let errorMessage = "Failed to transfer funds to project";
+      
+      if (error.message?.includes('Transaction request pending') || error.message?.includes('4100')) {
+        errorMessage = "Please complete the pending transaction in your Pera Wallet app first";
+      } else if (error.message?.includes('User rejected') || error.message?.includes('cancelled')) {
+        errorMessage = "Transaction was cancelled by user";
+      } else if (error.message?.includes('insufficient')) {
+        errorMessage = "Insufficient balance for transaction";
+      }
+      
       toast({
         title: "Allocation Failed",
-        description: error.message || "Failed to transfer funds to project",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

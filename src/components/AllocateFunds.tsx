@@ -12,6 +12,7 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
 import { toast } from "@/components/ui/use-toast";
+import { allocationService } from "@/lib/allocationService";
 
 export function AllocateFunds() {
   const { donations, addAllocation } = useDonations();
@@ -98,6 +99,21 @@ export function AllocateFunds() {
         status: 'completed',
         date: new Date().toISOString()
       });
+
+      // Store allocation in Cosmos DB
+      try {
+        await allocationService.createAllocation({
+          projectId: selectedProject,
+          projectName: project.title,
+          amount: amount,
+          purpose: `Fund allocation from donation ${selectedDonation}`,
+          allocatedBy: account,
+          walletAddress: account,
+          status: 'completed'
+        });
+      } catch (dbError) {
+        console.error('Failed to store allocation in database:', dbError);
+      }
 
       // Update project funding
       updateProjectFunding(selectedProject, amount);

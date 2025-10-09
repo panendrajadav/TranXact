@@ -13,6 +13,8 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
+import { projectService } from "@/lib/projectService";
+import { toast } from "@/components/ui/use-toast";
 
 interface Project {
   id: string;
@@ -44,7 +46,8 @@ export function ManagePrograms() {
     category: "",
     location: "",
     target: "",
-    duration: ""
+    duration: "",
+    walletAddress: ""
   });
 
   // Organization wallet addresses
@@ -82,14 +85,13 @@ export function ManagePrograms() {
     return () => clearInterval(interval);
   }, [wallet, projects]);
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (!newProject.title || !newProject.target) return;
 
     const orgName = newProject.organization || "Rural Development";
-    const walletAddress = NGO_WALLETS[orgName as keyof typeof NGO_WALLETS] || NGO_WALLETS['Rural Development'];
+    const walletAddress = newProject.walletAddress || NGO_WALLETS[orgName as keyof typeof NGO_WALLETS] || NGO_WALLETS['Rural Development'];
 
     const project = {
-      id: Date.now().toString(),
       title: newProject.title,
       organization: orgName,
       description: newProject.description,
@@ -98,10 +100,29 @@ export function ManagePrograms() {
       target: parseInt(newProject.target),
       raised: 0,
       backers: 0,
-      wallet: walletAddress
+      wallet: walletAddress,
+      status: 'active' as const
     };
 
-    addProject(project);
+    try {
+      // Store in Cosmos DB
+      const savedProject = await projectService.createProject(project);
+      
+      // Add to local state
+      addProject(savedProject);
+      
+      toast({
+        title: "Project Created",
+        description: `${project.title} has been created successfully`
+      });
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create project",
+        variant: "destructive"
+      });
+    }
     setNewProject({
       title: "",
       organization: "",
@@ -109,13 +130,32 @@ export function ManagePrograms() {
       category: "",
       location: "",
       target: "",
-      duration: ""
+      duration: "",
+      walletAddress: ""
     });
     setShowCreateForm(false);
   };
 
-  const handleDeleteProject = (projectId: string) => {
-    removeProject(projectId);
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      // Delete from Cosmos DB
+      await projectService.deleteProject(projectId);
+      
+      // Remove from local state
+      removeProject(projectId);
+      
+      toast({
+        title: "Project Deleted",
+        description: "Project has been deleted successfully"
+      });
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project",
+        variant: "destructive"
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -206,6 +246,16 @@ export function ManagePrograms() {
                   placeholder="Funding goal"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="walletAddress">Project Wallet Address</Label>
+              <Input
+                id="walletAddress"
+                value={newProject.walletAddress}
+                onChange={(e) => setNewProject({...newProject, walletAddress: e.target.value})}
+                placeholder="Enter Algorand wallet address for receiving funds"
+              />
             </div>
 
             <div className="flex gap-3">
