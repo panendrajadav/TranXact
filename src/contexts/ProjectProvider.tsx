@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { TransactionAPI } from '@/lib/transactionAPI';
 
 interface Project {
   id: string;
@@ -71,6 +72,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   ]);
 
   const updateProjectFunding = (projectId: string, amount: number) => {
+    // Update local state
     setProjects(prev => prev.map(project => 
       project.id === projectId 
         ? { 
@@ -80,10 +82,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           }
         : project
     ));
+    
+    // Update in database (non-blocking)
+    TransactionAPI.updateProjectFunding(projectId, amount)
+      .catch(error => console.error('Failed to update project funding in DB:', error));
   };
 
   const addProject = (project: Omit<Project, 'id'> & { id: string }) => {
+    // Update local state
     setProjects(prev => [project, ...prev]);
+    
+    // Store in database (non-blocking)
+    TransactionAPI.storeProject(project)
+      .catch(error => console.error('Failed to store project in DB:', error));
   };
 
   const removeProject = (projectId: string) => {

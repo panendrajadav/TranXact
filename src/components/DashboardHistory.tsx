@@ -8,10 +8,35 @@ import { Search } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { TransactionService, AlgorandTransaction } from "@/lib/transactionService";
 import { useWallet } from "@/contexts/WalletProvider";
+import { useProjects } from "@/contexts/ProjectProvider";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 const DashboardHistory = () => {
   const { account } = useWallet();
+  const { projects } = useProjects();
+
+  // NGO wallet mappings
+  const NGO_WALLETS = {
+    'DYT6HEX5FQY7F26E3CUIRUFP6RQKKXKOMZLXUW5FKITZE74YJWTFNTWDPU': 'Asha Foundation',
+    'J7LJIQ7JK3Q6OWMUSW6DWIYC3HRNLSXGL5KQ5TFJXILFKXDURSE2PSAFOI': 'MB Foundation',
+    'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ': 'United Nations'
+  } as const;
+
+  const getOrganizationName = (address: string) => {
+    // Check NGO wallets first
+    if (NGO_WALLETS[address as keyof typeof NGO_WALLETS]) {
+      return NGO_WALLETS[address as keyof typeof NGO_WALLETS];
+    }
+    
+    // Check project wallets
+    const project = projects.find(p => p.wallet === address);
+    if (project) {
+      return project.title;
+    }
+    
+    // Return formatted address if no match
+    return formatAddress(address);
+  };
   const [currentTime, setCurrentTime] = useState(new Date());
   const [walletTransactions, setWalletTransactions] = useState<AlgorandTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,7 +145,7 @@ const DashboardHistory = () => {
                         </TableCell>
                         <TableCell className="text-sm">
                           <div>
-                            <div className="font-medium text-base">{formatAddress(tx.receiver)}</div>
+                            <div className="font-medium text-base">{getOrganizationName(tx.receiver)}</div>
                             <div className="text-sm text-muted-foreground mt-1">{tx.note || 'Algorand transaction'}</div>
                           </div>
                         </TableCell>

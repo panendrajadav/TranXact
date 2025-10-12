@@ -14,6 +14,7 @@ import {
   Loader2
 } from "lucide-react";
 import { useWallet } from "@/contexts/WalletProvider";
+import { useProjects } from "@/contexts/ProjectProvider";
 import { TransactionService, AlgorandTransaction } from "@/lib/transactionService";
 
 export const HistoryTab = () => {
@@ -21,7 +22,31 @@ export const HistoryTab = () => {
   const [transactions, setTransactions] = useState<AlgorandTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   const { account } = useWallet();
+  const { projects } = useProjects();
   const transactionService = new TransactionService();
+
+  // NGO wallet mappings
+  const NGO_WALLETS = {
+    'DYT6HEX5FQY7F26E3CUIRUFP6RQKKXKOMZLXUW5FKITZE74YJWTFNTWDPU': 'Asha Foundation',
+    'J7LJIQ7JK3Q6OWMUSW6DWIYC3HRNLSXGL5KQ5TFJXILFKXDURSE2PSAFOI': 'MB Foundation',
+    'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ': 'United Nations'
+  } as const;
+
+  const getOrganizationName = (address: string) => {
+    // Check NGO wallets first
+    if (NGO_WALLETS[address as keyof typeof NGO_WALLETS]) {
+      return NGO_WALLETS[address as keyof typeof NGO_WALLETS];
+    }
+    
+    // Check project wallets
+    const project = projects.find(p => p.wallet === address);
+    if (project) {
+      return project.title;
+    }
+    
+    // Return formatted address if no match
+    return formatAddress(address);
+  };
 
   useEffect(() => {
     if (account) {
@@ -224,7 +249,7 @@ export const HistoryTab = () => {
                       <td className="py-5 text-base text-muted-foreground">{transaction.timestamp}</td>
                       <td className="py-5">
                         <div>
-                          <div className="font-medium text-base">{formatAddress(transaction.receiver)}</div>
+                          <div className="font-medium text-base">{getOrganizationName(transaction.receiver)}</div>
                           <div className="text-sm text-muted-foreground mt-1">
                             {transaction.note || 'Algorand transaction'}
                           </div>

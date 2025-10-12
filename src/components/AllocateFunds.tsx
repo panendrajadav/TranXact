@@ -11,6 +11,7 @@ import { useProjects } from "@/contexts/ProjectProvider";
 import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
+import { TransactionAPI } from "@/lib/transactionAPI";
 import { toast } from "@/components/ui/use-toast";
 
 export function AllocateFunds() {
@@ -90,17 +91,57 @@ export function AllocateFunds() {
         note: `Fund allocation to ${project.title} from donation ${selectedDonation}`
       });
 
-      // Add allocation record
-      addAllocation(selectedDonation, {
+      // Store allocation transaction in database
+      const allocationData = {
+        transactionId: txnId,
+        type: 'allocation',
+        donationId: selectedDonation,
+        projectId: selectedProject,
+        projectTitle: project.title,
+        organization: project.organization,
+        amount: amount,
+        status: 'confirmed',
+        timestamp: new Date().toISOString(),
+        notes: `Fund allocation to ${project.title} from donation ${selectedDonation}`
+      };
+      
+      TransactionAPI.storeTransaction(allocationData)
+        .catch(error => console.error('Failed to store allocation transaction:', error));
+
+      // Add allocation record to donation
+      const allocationRecord = {
         projectId: selectedProject,
         projectName: project.title,
         amount: amount,
         status: 'completed',
-        date: new Date().toISOString()
-      });
-
-      // Update project funding
+        date: new Date().toISOString(),
+        transactionId: txnId
+      };
+      
+      addAllocation(selectedDonation, allocationRecord);
       updateProjectFunding(selectedProject, amount);
+      
+      // Store allocation in database
+      TransactionAPI.addAllocation(selectedDonation, allocationRecord)
+        .catch(error => console.error('Failed to store allocation in DB:', error));
+      
+      // Calculate and store remaining funds after state update
+      setTimeout(() => {
+        const updatedDonation = donations.find(d => d.id === selectedDonation);
+        if (updatedDonation) {
+          const totalAllocatedAfter = (updatedDonation.allocations?.reduce((sum, alloc) => sum + alloc.amount, 0) || 0);
+          const remainingFunds = updatedDonation.amount - totalAllocatedAfter;
+          
+          // Store remaining funds in database
+          TransactionAPI.storeRemainingFunds({
+            donationId: selectedDonation,
+            totalAmount: updatedDonation.amount,
+            allocatedAmount: totalAllocatedAfter,
+            remainingAmount: remainingFunds,
+            lastUpdated: new Date().toISOString()
+          }).catch(error => console.error('Failed to store remaining funds:', error));
+        }
+      }, 100);
 
       toast({
         title: "Allocation Successful",

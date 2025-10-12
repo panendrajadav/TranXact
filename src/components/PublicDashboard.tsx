@@ -8,14 +8,35 @@ import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
 import { ManagePrograms } from "@/components/ManagePrograms";
 import { AllocateToProjects } from "@/components/AllocateToProjects";
+
 import { useProjects } from "@/contexts/ProjectProvider";
+import { useDonations } from "@/contexts/DonationProvider";
+import { TransactionAPI } from "@/lib/transactionAPI";
 
 export function PublicDashboard() {
   const { wallet, account, isConnected } = useWallet();
   const { userName } = useAuth();
+  const { donations } = useDonations();
   const [balance, setBalance] = useState<number | null>(null);
   const [showManagePrograms, setShowManagePrograms] = useState(false);
   const [showAllocate, setShowAllocate] = useState(false);
+  const [highlightedProject, setHighlightedProject] = useState<string | null>(null);
+  const [privateFunds, setPrivateFunds] = useState<any>(null);
+
+  const handleViewProject = (projectId: string) => {
+    setHighlightedProject(projectId);
+    setShowManagePrograms(true);
+    if (showAllocate) setShowAllocate(false);
+  };
+
+  const getWalletName = (address: string) => {
+    const walletNames: { [key: string]: string } = {
+      'DYT6HEX5FQY7F26E3CUIRUFP6RQKKXKOMZLXUW5FKITZE74YJWTFNTWDPU': 'Ashaa Foundations',
+      'J7LJIQ7JK3Q6OWMUSW6DWIYC3HRNLSXGL5KQ5TFJXILFKXDURSE2PSAFOI': 'MB Foundations',
+      'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ': 'United Nations'
+    };
+    return walletNames[address] || 'Wallet User';
+  };
 
 
   useEffect(() => {
@@ -30,31 +51,56 @@ export function PublicDashboard() {
         }
       }
     };
+    
+    const fetchPrivateFunds = async () => {
+      try {
+        const privateFundsData = await TransactionAPI.getPrivateFunds();
+        setPrivateFunds(privateFundsData);
+      } catch (error) {
+        console.error('Failed to fetch private funds:', error);
+      }
+    };
+    
     fetchBalance();
+    fetchPrivateFunds();
   }, [isConnected, account, wallet]);
 
+  // Calculate total funding from actual donations only
+  const totalFunding = donations.reduce((sum, donation) => sum + donation.amount, 0);
+  
   const impactStats = [
-    { label: "Total Funding", value: "12,500 ALGO" },
-    { label: "NGOs Supported", value: "25" },
+    { label: "Total Funding", value: `${totalFunding.toFixed(2)} ALGO` },
+    { label: "NGOs Supported", value: "3" },
     { label: "Lives Impacted", value: "5,000+" }
   ];
 
   const { projects } = useProjects();
   
-  // Get top 2 funded projects
-  const topFundedProjects = projects
-    .sort((a, b) => b.raised - a.raised)
-    .slice(0, 2);
+  // Calculate actual funded amounts from allocations
+  const projectsWithFunding = projects.map(project => {
+    const totalFunded = donations.reduce((sum, donation) => {
+      const projectAllocations = donation.allocations?.filter(alloc => alloc.projectId === project.id) || [];
+      return sum + projectAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
+    }, 0);
+    return { ...project, actualFunded: totalFunded };
+  });
+
+  // Get top 3 funded projects based on actual funded amount (descending).
+  // Use a copy of the array to avoid mutating the original and include projects
+  // with zero funding as fallback so the list always shows the top projects.
+  const topFundedProjects = [...projectsWithFunding]
+    .sort((a, b) => (b.actualFunded ?? 0) - (a.actualFunded ?? 0))
+    .slice(0, 3);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Welcome, {userName || 'Public Donor'}!</h1>
+          <h1 className="text-4xl font-bold">Welcome, {userName || (account ? getWalletName(account) : 'Public Donor')}!</h1>
           <p className="text-muted-foreground text-lg">Manage large-scale funding and NGO partnerships</p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-muted-foreground">Available Funds:</div>
+          <div className="text-sm text-muted-foreground">Available Balance:</div>
           <div className="text-3xl font-bold text-primary">
             {balance !== null ? `${balance.toFixed(6)} ALGO` : '--'}
           </div>
@@ -87,7 +133,7 @@ export function PublicDashboard() {
       </div>
 
       {showManagePrograms ? (
-        <ManagePrograms />
+        <ManagePrograms highlightedProject={highlightedProject} />
       ) : showAllocate ? (
         <AllocateToProjects />
       ) : (
@@ -106,10 +152,12 @@ export function PublicDashboard() {
         </div>
       </section>
 
+
+
       <section>
         <h2 className="text-2xl font-semibold mb-4">Top Funded Projects</h2>
         <div className="space-y-4">
-          {topFundedProjects.map((project, index) => (
+          {(topFundedProjects.length > 0 ? topFundedProjects : projectsWithFunding.slice(0, 3)).map((project, index) => (
             <Card key={project.id}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -120,7 +168,7 @@ export function PublicDashboard() {
                     <div>
                       <div className="font-medium">{project.title}</div>
                       <div className="text-sm text-muted-foreground">
-                        {project.raised.toLocaleString()} ALGO raised • {project.backers} backers
+                        {project.actualFunded.toFixed(2)} ALGO funded • {project.backers} backers
                       </div>
                       <div className="flex gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs">
@@ -133,7 +181,7 @@ export function PublicDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleViewProject(project.id)}>
                       View Project
                     </Button>
                   </div>
