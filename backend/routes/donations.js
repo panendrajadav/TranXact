@@ -183,4 +183,46 @@ router.post('/private-donation', async (req, res) => {
   }
 });
 
+// Store organization-specific donation
+router.post('/organization', async (req, res) => {
+  try {
+    const orgDonation = {
+      id: `org_donation_${Date.now()}`,
+      donorAddress: req.body.donorAddress,
+      organizationName: req.body.organizationName,
+      organizationWallet: req.body.organizationWallet,
+      amount: req.body.amount,
+      reason: req.body.reason,
+      date: req.body.date || new Date().toISOString(),
+      transactionId: req.body.transactionId,
+      allocations: req.body.allocations || [],
+      status: req.body.status || 'active',
+      type: 'organization_donation'
+    };
+
+    const { resource } = await donationContainer.items.create(orgDonation);
+    res.status(201).json(resource);
+  } catch (error) {
+    console.error('Error creating organization donation:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get donations for specific organization wallet
+router.get('/organization/:organizationWallet', async (req, res) => {
+  try {
+    const { organizationWallet } = req.params;
+    const querySpec = {
+      query: 'SELECT * FROM c WHERE c.organizationWallet = @organizationWallet AND c.type = "organization_donation" ORDER BY c.date DESC',
+      parameters: [{ name: '@organizationWallet', value: organizationWallet }]
+    };
+
+    const { resources } = await donationContainer.items.query(querySpec).fetchAll();
+    res.json(resources);
+  } catch (error) {
+    console.error('Error fetching organization donations:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

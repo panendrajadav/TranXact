@@ -25,6 +25,7 @@ interface DonationContextType {
   addDonation: (donation: Omit<Donation, 'id' | 'allocations'>) => void;
   addAllocation: (donationId: string, allocation: Allocation) => void;
   getDonationsByDonor: (address: string) => Donation[];
+  getOrganizationDonations: (organizationWallet: string) => Promise<Donation[]>;
   clearDonations: () => void;
 }
 
@@ -37,18 +38,9 @@ export function useDonations() {
 }
 
 export function DonationProvider({ children }: { children: ReactNode }) {
-  const [donations, setDonations] = useState<Donation[]>(() => {
-    try {
-      const saved = localStorage.getItem('tranxact-donations');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [donations, setDonations] = useState<Donation[]>([]);
 
-  useEffect(() => {
-    localStorage.setItem('tranxact-donations', JSON.stringify(donations));
-  }, [donations]);
+
 
   const addDonation = (donation: Omit<Donation, 'id' | 'allocations'>) => {
     const newDonation: Donation = {
@@ -56,13 +48,9 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       id: Date.now().toString(),
       allocations: []
     };
-    setDonations(prev => {
-      const updated = [newDonation, ...prev];
-      localStorage.setItem('tranxact-donations', JSON.stringify(updated));
-      return updated;
-    });
+    setDonations(prev => [newDonation, ...prev]);
     
-    // Store in database as well
+    // Store in database
     TransactionAPI.storeDonation({
       donationId: newDonation.id,
       donorAddress: newDonation.donorAddress,
@@ -77,18 +65,12 @@ export function DonationProvider({ children }: { children: ReactNode }) {
   };
 
   const addAllocation = (donationId: string, allocation: Allocation) => {
-    // Update local state
-    setDonations(prev => {
-      const updated = prev.map(donation => 
-        donation.id === donationId
-          ? { ...donation, allocations: [...donation.allocations, allocation] }
-          : donation
-      );
-      localStorage.setItem('tranxact-donations', JSON.stringify(updated));
-      return updated;
-    });
+    setDonations(prev => prev.map(donation => 
+      donation.id === donationId
+        ? { ...donation, allocations: [...donation.allocations, allocation] }
+        : donation
+    ));
     
-    // Update in database (non-blocking)
     TransactionAPI.addAllocation(donationId, allocation)
       .catch(error => console.error('Failed to update allocation in DB:', error));
   };
@@ -97,9 +79,18 @@ export function DonationProvider({ children }: { children: ReactNode }) {
     return donations.filter(donation => donation.donorAddress === address);
   };
 
+  const getOrganizationDonations = async (organizationWallet: string): Promise<Donation[]> => {
+    try {
+      const orgDonations = await TransactionAPI.getOrganizationDonations(organizationWallet);
+      return orgDonations;
+    } catch (error) {
+      console.error('Failed to fetch organization donations:', error);
+      return [];
+    }
+  };
+
   const clearDonations = () => {
     setDonations([]);
-    localStorage.removeItem('tranxact-donations');
   };
 
   return (
@@ -108,6 +99,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       addDonation,
       addAllocation,
       getDonationsByDonor,
+      getOrganizationDonations,
       clearDonations
     }}>
       {children}
