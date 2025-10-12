@@ -133,6 +133,22 @@ export class TransactionAPI {
     return response.json();
   }
 
+  static async updateProject(projectId: string, updates: any): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update project: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
   static async getFundingStatistics(): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/transactions/statistics`);
 

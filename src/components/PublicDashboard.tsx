@@ -17,11 +17,13 @@ export function PublicDashboard() {
   const { wallet, account, isConnected } = useWallet();
   const { userName } = useAuth();
   const { donations } = useDonations();
+  const { projects } = useProjects();
   const [balance, setBalance] = useState<number | null>(null);
   const [showManagePrograms, setShowManagePrograms] = useState(false);
   const [showAllocate, setShowAllocate] = useState(false);
   const [highlightedProject, setHighlightedProject] = useState<string | null>(null);
   const [privateFunds, setPrivateFunds] = useState<any>(null);
+  const [walletBalances, setWalletBalances] = useState<{[key: string]: number}>({});
 
   const handleViewProject = (projectId: string) => {
     setHighlightedProject(projectId);
@@ -60,10 +62,30 @@ export function PublicDashboard() {
         console.error('Failed to fetch private funds:', error);
       }
     };
+
+    const fetchWalletBalances = async () => {
+      if (!wallet) return;
+      
+      const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+      const balances: {[key: string]: number} = {};
+      
+      for (const project of projects) {
+        try {
+          const balance = await algoService.getBalance(project.wallet);
+          balances[project.wallet] = balance;
+        } catch (error) {
+          console.error(`Failed to fetch balance for ${project.title}:`, error);
+          balances[project.wallet] = 0;
+        }
+      }
+      
+      setWalletBalances(balances);
+    };
     
     fetchBalance();
     fetchPrivateFunds();
-  }, [isConnected, account, wallet]);
+    fetchWalletBalances();
+  }, [isConnected, account, wallet, projects]);
 
   // Calculate total funding from actual donations only
   const totalFunding = donations.reduce((sum, donation) => sum + donation.amount, 0);
@@ -74,20 +96,13 @@ export function PublicDashboard() {
     { label: "Lives Impacted", value: "5,000+" }
   ];
 
-  const { projects } = useProjects();
-  
-  // Calculate actual funded amounts from allocations
+  // Calculate actual funded amounts from wallet balances
   const projectsWithFunding = projects.map(project => {
-    const totalFunded = donations.reduce((sum, donation) => {
-      const projectAllocations = donation.allocations?.filter(alloc => alloc.projectId === project.id) || [];
-      return sum + projectAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
-    }, 0);
-    return { ...project, actualFunded: totalFunded };
+    const walletBalance = walletBalances[project.wallet] || 0;
+    return { ...project, actualFunded: walletBalance };
   });
 
-  // Get top 3 funded projects based on actual funded amount (descending).
-  // Use a copy of the array to avoid mutating the original and include projects
-  // with zero funding as fallback so the list always shows the top projects.
+  // Get top 3 funded projects based on wallet balance (descending)
   const topFundedProjects = [...projectsWithFunding]
     .sort((a, b) => (b.actualFunded ?? 0) - (a.actualFunded ?? 0))
     .slice(0, 3);

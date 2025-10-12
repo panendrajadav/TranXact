@@ -19,6 +19,7 @@ interface ProjectContextType {
   updateProjectFunding: (projectId: string, amount: number) => void;
   addProject: (project: Omit<Project, 'id'> & { id: string }) => void;
   removeProject: (projectId: string) => void;
+  updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
@@ -101,8 +102,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProjects(prev => prev.filter(project => project.id !== projectId));
   };
 
+  const updateProject = async (projectId: string, updates: Partial<Project>) => {
+    setProjects(prev => prev.map(project => 
+      project.id === projectId ? { ...project, ...updates } : project
+    ));
+    
+    try {
+      await TransactionAPI.updateProject(projectId, updates);
+    } catch (error) {
+      console.error('Failed to update project in DB:', error);
+    }
+  };
+
   return (
-    <ProjectContext.Provider value={{ projects, updateProjectFunding, addProject, removeProject }}>
+    <ProjectContext.Provider value={{ projects, updateProjectFunding, addProject, removeProject, updateProject }}>
       {children}
     </ProjectContext.Provider>
   );
