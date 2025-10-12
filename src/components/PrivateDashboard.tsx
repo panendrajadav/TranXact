@@ -54,7 +54,7 @@ export function PrivateDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Welcome, {userName || 'Private Donor'}!</h1>
+          <h1 className="text-4xl font-bold">Welcome, {userName || (account ? 'Wallet User' : 'Private Donor')}!</h1>
           <p className="text-muted-foreground text-lg">Track your personal donations and impact</p>
         </div>
         <div className="text-right">

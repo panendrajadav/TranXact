@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,15 +13,25 @@ import {
   Users, 
   Calendar,
   ArrowUpRight,
-  Wallet
+  Wallet,
+  Trophy
 } from "lucide-react";
 import { ReportsTab } from "./ReportsTab";
 import { HistoryTab } from "./HistoryTab";
 import { ReceiveFundsModal } from "./ReceiveFundsModal";
+import { useProjects } from "@/contexts/ProjectProvider";
+import { useDonations } from "@/contexts/DonationProvider";
+import { useWallet } from "@/contexts/WalletProvider";
+import { AlgorandService } from "@/lib/algorand";
+import { APP_CONFIG } from "@/lib/config";
 
 export const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const { projects } = useProjects();
+  const { donations } = useDonations();
+  const { wallet } = useWallet();
+  const [projectBalances, setProjectBalances] = useState<{[key: string]: number}>({});
 
   const handleSendFunds = () => {
     // Navigate to send funds page
@@ -36,6 +46,39 @@ export const Dashboard = () => {
   const handleReceiveFunds = () => {
     setShowReceiveModal(true);
   };
+
+  // Fetch project balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (!wallet || projects.length === 0) return;
+      
+      const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+      const balances: {[key: string]: number} = {};
+      
+      for (const project of projects) {
+        try {
+          const balance = await algoService.getBalance(project.wallet);
+          balances[project.wallet] = balance;
+        } catch (error) {
+          console.error(`Failed to fetch balance for ${project.title}:`, error);
+          balances[project.wallet] = 0;
+        }
+      }
+      
+      setProjectBalances(balances);
+    };
+    
+    fetchBalances();
+  }, [wallet, projects]);
+
+  // Get top 3 funded projects
+  const topFundedProjects = projects
+    .map(project => ({
+      ...project,
+      currentFunding: projectBalances[project.wallet] || 0
+    }))
+    .sort((a, b) => b.currentFunding - a.currentFunding)
+    .slice(0, 3);
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,7 +98,7 @@ export const Dashboard = () => {
             <div className="flex items-center space-x-2">
               <Badge variant="secondary" className="bg-secondary">
                 <Wallet className="h-3 w-3 mr-1" />
-                Balance: 711.88 ALGO
+                Balance: {donations.reduce((sum, donation) => sum + donation.amount, 0).toFixed(2)} ALGO
               </Badge>
             </div>
           </div>
@@ -118,7 +161,7 @@ export const Dashboard = () => {
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-4 bg-muted rounded-lg">
-                      <div className="text-2xl font-bold text-primary">3,112.5 ALGO</div>
+                      <div className="text-2xl font-bold text-primary">{donations.reduce((sum, donation) => sum + donation.amount, 0).toFixed(1)} ALGO</div>
                       <div className="text-sm text-muted-foreground">Total Donated</div>
                     </div>
                     <div className="text-center p-4 bg-muted rounded-lg">
@@ -167,6 +210,52 @@ export const Dashboard = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Top Funded Projects */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Trophy className="h-5 w-5 mr-2 text-warning" />
+                  Top Funded Projects
+                </CardTitle>
+                <CardDescription>Projects with the highest funding levels</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {topFundedProjects.length > 0 ? (
+                  topFundedProjects.map((project, index) => {
+                    const fundingPercentage = (project.currentFunding / project.target) * 100;
+                    return (
+                      <div key={project.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-foreground">{project.title}</div>
+                            <div className="text-sm text-muted-foreground">{project.organization}</div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Progress value={Math.min(fundingPercentage, 100)} className="h-1 flex-1" />
+                              <span className="text-xs text-muted-foreground">
+                                {fundingPercentage.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-primary">{project.currentFunding.toFixed(2)} ALGO</div>
+                          <div className="text-xs text-muted-foreground">of {project.target} ALGO</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No funded projects available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Giving Reports Preview */}
             <Card className="shadow-card">

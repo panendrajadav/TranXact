@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { TransactionAPI } from '@/lib/transactionAPI';
 
 interface Donation {
   id: string;
@@ -60,9 +61,23 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('tranxact-donations', JSON.stringify(updated));
       return updated;
     });
+    
+    // Store in database as well
+    TransactionAPI.storeDonation({
+      donationId: newDonation.id,
+      donorAddress: newDonation.donorAddress,
+      organizationName: newDonation.organizationName,
+      amount: newDonation.amount,
+      reason: newDonation.reason,
+      date: newDonation.date,
+      transactionId: newDonation.transactionId,
+      allocations: [],
+      status: 'active'
+    }).catch(error => console.error('Failed to store donation in DB:', error));
   };
 
   const addAllocation = (donationId: string, allocation: Allocation) => {
+    // Update local state
     setDonations(prev => {
       const updated = prev.map(donation => 
         donation.id === donationId
@@ -72,6 +87,10 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('tranxact-donations', JSON.stringify(updated));
       return updated;
     });
+    
+    // Update in database (non-blocking)
+    TransactionAPI.addAllocation(donationId, allocation)
+      .catch(error => console.error('Failed to update allocation in DB:', error));
   };
 
   const getDonationsByDonor = (address: string) => {

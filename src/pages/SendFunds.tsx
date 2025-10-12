@@ -14,6 +14,7 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { useDonations } from "@/contexts/DonationProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
+import { TransactionAPI } from "@/lib/transactionAPI";
 import { toast } from "@/components/ui/use-toast";
 
 const SendFunds = () => {
@@ -106,6 +107,33 @@ const SendFunds = () => {
       });
 
 
+
+      // Store transaction in CosmosDB (non-blocking)
+      TransactionAPI.storeTransaction({
+        transactionId: `donation_${Date.now()}`,
+        type: 'sent',
+        organization: organizations.find(org => org.id === selectedOrg)?.name || '',
+        amount: amountNum,
+        status: 'confirmed',
+        gasUsed: 0.001,
+        notes: `${reason} - Donation to ${organizations.find(org => org.id === selectedOrg)?.name}`
+      }).catch(error => console.error('Failed to store transaction:', error));
+
+      // Store donation in CosmosDB (non-blocking)
+      TransactionAPI.storeDonation({
+        donorAddress: account,
+        organizationName: organizations.find(org => org.id === selectedOrg)?.name || '',
+        amount: amountNum,
+        reason: reason,
+        date: new Date().toISOString(),
+        transactionId: txnId,
+        allocations: [],
+        status: 'active'
+      }).then(result => {
+        console.log('Donation stored successfully:', result);
+      }).catch(error => {
+        console.error('Failed to store donation:', error);
+      });
 
       addDonation({
         donorAddress: account,

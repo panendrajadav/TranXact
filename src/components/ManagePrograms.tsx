@@ -29,7 +29,11 @@ interface Project {
   image: string;
 }
 
-export function ManagePrograms() {
+interface ManageProgramsProps {
+  highlightedProject?: string | null;
+}
+
+export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {}) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [editingProject, setEditingProject] = useState<string | null>(null);
@@ -500,7 +504,12 @@ export function ManagePrograms() {
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => (
-          <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card 
+            key={project.id} 
+            className={`cursor-pointer hover:shadow-md transition-shadow ${
+              highlightedProject === project.id ? 'ring-2 ring-primary shadow-lg' : ''
+            }`}
+          >
             <div className="h-48 rounded-t-lg overflow-hidden relative">
               <img src="src/assets/children.jpg" alt={project.title} className="object-cover w-full h-full" />
               <Badge className="absolute top-3 right-3 text-white bg-primary">

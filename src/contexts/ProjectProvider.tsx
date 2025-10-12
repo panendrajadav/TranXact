@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { projectService } from '@/lib/projectService';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { TransactionAPI } from '@/lib/transactionAPI';
 
 interface Project {
   id: string;
@@ -16,8 +16,7 @@ interface Project {
 
 interface ProjectContextType {
   projects: Project[];
-  updateProjectFunding: (projectId: string, amount: number) => Promise<void>;
-  updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>;
+  updateProjectFunding: (projectId: string, amount: number) => void;
   addProject: (project: Omit<Project, 'id'> & { id: string }) => void;
   removeProject: (projectId: string) => void;
 }
@@ -35,7 +34,7 @@ export function useProjects() {
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([
     {
-      id: "project001",
+      id: "rural-development",
       title: "Rural Development",
       organization: "Rural Development Foundation",
       description: "Supporting rural communities with infrastructure development and livelihood programs.",
@@ -47,7 +46,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       wallet: "C357R4KJBSBYRAE4XGV4LVNW5RR3AELXTTWNVEGJIEDK3HAM2GTIJTH5RU"
     },
     {
-      id: "project002",
+      id: "emergency-food",
       title: "Emergency Food Supplies",
       organization: "Food Security Initiative",
       description: "Providing emergency food supplies to communities affected by natural disasters and food insecurity.",
@@ -59,7 +58,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       wallet: "U6XN23YTKDI6UT3FAE5ZIGJSOHUGHLI4Z4G5V77RPUSI3P5USYW5JFKH3I"
     },
     {
-      id: "project003",
+      id: "child-healthcare",
       title: "Child Healthcare",
       organization: "Children's Health Foundation",
       description: "Providing essential healthcare services and medical support for children in underserved communities.",
@@ -72,56 +71,30 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   ]);
 
-  const updateProjectFunding = async (projectId: string, amount: number) => {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const updates = {
-      raised: project.raised + amount,
-      backers: project.backers + 1
-    };
-
-    try {
-      // Update in database
-      await projectService.updateProject(projectId, { ...project, ...updates });
-      
-      // Update local state
-      setProjects(prev => prev.map(p => 
-        p.id === projectId ? { ...p, ...updates } : p
-      ));
-    } catch (error) {
-      console.error('Failed to update project funding:', error);
-    }
-  };
-
-  const updateProject = async (projectId: string, updates: Partial<Project>) => {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const updatedProject = {
-      ...project,
-      ...updates,
-      id: projectId,
-      createdAt: project.createdAt || new Date().toISOString(),
-      status: project.status || 'active'
-    };
-
-    try {
-      // Update in database
-      await projectService.updateProject(projectId, updatedProject);
-      
-      // Update local state
-      setProjects(prev => prev.map(p => 
-        p.id === projectId ? { ...p, ...updates } : p
-      ));
-    } catch (error) {
-      console.error('Failed to update project:', error);
-      throw error;
-    }
+  const updateProjectFunding = (projectId: string, amount: number) => {
+    // Update local state
+    setProjects(prev => prev.map(project => 
+      project.id === projectId 
+        ? { 
+            ...project, 
+            raised: project.raised + amount,
+            backers: project.backers + 1
+          }
+        : project
+    ));
+    
+    // Update in database (non-blocking)
+    TransactionAPI.updateProjectFunding(projectId, amount)
+      .catch(error => console.error('Failed to update project funding in DB:', error));
   };
 
   const addProject = (project: Omit<Project, 'id'> & { id: string }) => {
+    // Update local state
     setProjects(prev => [project, ...prev]);
+    
+    // Store in database (non-blocking)
+    TransactionAPI.storeProject(project)
+      .catch(error => console.error('Failed to store project in DB:', error));
   };
 
   const removeProject = (projectId: string) => {
@@ -129,7 +102,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ProjectContext.Provider value={{ projects, updateProjectFunding, updateProject, addProject, removeProject }}>
+    <ProjectContext.Provider value={{ projects, updateProjectFunding, addProject, removeProject }}>
       {children}
     </ProjectContext.Provider>
   );

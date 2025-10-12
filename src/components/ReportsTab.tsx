@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -22,35 +22,120 @@ import {
   Calendar,
   DollarSign
 } from "lucide-react";
+import { TransactionAPI } from '@/lib/transactionAPI';
+import { useDonations } from '@/contexts/DonationProvider';
+import { useProjects } from '@/contexts/ProjectProvider';
+import { useWallet } from '@/contexts/WalletProvider';
+import { AlgorandService } from '@/lib/algorand';
+import { APP_CONFIG } from '@/lib/config';
 
 export const ReportsTab = () => {
-  // Mock data for charts
-  const donationsByCategory = [
-    { name: 'Education', value: 68, amount: 8500, color: 'hsl(147 86% 40%)' },
-    { name: 'Health', value: 23, amount: 2870, color: 'hsl(37 100% 55%)' },
-    { name: 'Environment', value: 9, amount: 1080, color: 'hsl(217 91% 60%)' }
-  ];
+  const { donations } = useDonations();
+  const { projects } = useProjects();
+  const { wallet, account, isConnected } = useWallet();
+  const [fundingStats, setFundingStats] = useState<any>(null);
+  const [allocations, setAllocations] = useState<any[]>([]);
+  const [privateFunds, setPrivateFunds] = useState<any>(null);
+  const [remainingFunds, setRemainingFunds] = useState<any[]>([]);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
 
-  const donationsOverTime = [
-    { month: 'Jan', amount: 850 },
-    { month: 'Feb', amount: 1200 },
-    { month: 'Mar', amount: 980 },
-    { month: 'Apr', amount: 1550 },
-    { month: 'May', amount: 1100 },
-    { month: 'Jun', amount: 1650 },
-    { month: 'Jul', amount: 1400 },
-    { month: 'Aug', amount: 1750 },
-    { month: 'Sep', amount: 1300 },
-    { month: 'Oct', amount: 1600 },
-    { month: 'Nov', amount: 1450 },
-    { month: 'Dec', amount: 1200 }
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [stats, allocs, privateFundsData, remainingFundsData] = await Promise.all([
+          TransactionAPI.getFundingStatistics().catch(() => null),
+          TransactionAPI.getAllAllocations().catch(() => []),
+          TransactionAPI.getPrivateFunds().catch(() => null),
+          TransactionAPI.getRemainingFunds().catch(() => [])
+        ]);
+        setFundingStats(stats);
+        setAllocations(allocs);
+        setPrivateFunds(privateFundsData);
+        setRemainingFunds(remainingFundsData);
+        
+        // Fetch wallet balance
+        if (isConnected && account && wallet) {
+          const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+          const balance = await algoService.getBalance(account);
+          setWalletBalance(balance);
+        }
+      } catch (error) {
+        console.error('Failed to fetch funding data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [isConnected, account, wallet]);
 
-  const monthlyBreakdown = [
-    { category: 'Education', jan: 600, feb: 800, mar: 650, apr: 1050, may: 750 },
-    { category: 'Health', jan: 200, feb: 350, mar: 280, apr: 400, may: 300 },
-    { category: 'Environment', jan: 50, feb: 50, mar: 50, apr: 100, may: 50 }
-  ];
+  // Calculate real statistics from donations and allocations
+  const totalFunds = donations.reduce((sum, donation) => sum + donation.amount, 0);
+  
+  // Only count funds that have been actually allocated to projects
+  const totalAllocated = donations.reduce((sum, donation) => {
+    const donationAllocations = donation.allocations || [];
+    return sum + donationAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
+  }, 0);
+  
+  // Calculate remaining funds (unallocated) - using wallet balance as the base
+  const totalRemainingFunds = walletBalance - totalAllocated;
+  
+  const uniqueOrganizations = new Set(donations.map(d => d.organizationName)).size;
+  const avgDonation = donations.length > 0 ? totalFunds / donations.length : 0;
+  const totalAllocationCount = donations.reduce((sum, donation) => {
+    return sum + (donation.allocations?.length || 0);
+  }, 0);
+
+  // Group allocations by project category using donation allocations
+  const categoryStats = projects.reduce((acc, project) => {
+    let categoryAmount = 0;
+    donations.forEach(donation => {
+      if (donation.allocations) {
+        donation.allocations.forEach(alloc => {
+          if (alloc.projectId === project.id) {
+            categoryAmount += alloc.amount;
+          }
+        });
+      }
+    });
+    
+    if (categoryAmount > 0) {
+      acc[project.category] = (acc[project.category] || 0) + categoryAmount;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const donationsByCategory = Object.entries(categoryStats).map(([name, amount], index) => {
+    const colors = ['hsl(147 86% 40%)', 'hsl(37 100% 55%)', 'hsl(217 91% 60%)', 'hsl(280 100% 70%)', 'hsl(25 95% 53%)'];
+    const percentage = totalAllocated > 0 ? (amount / totalAllocated) * 100 : 0;
+    return {
+      name,
+      value: Math.round(percentage),
+      amount,
+      color: colors[index % colors.length]
+    };
+  });
+
+  // Group donations by month
+  const donationsOverTime = donations.reduce((acc, donation) => {
+    const month = new Date(donation.date).toLocaleDateString('en-US', { month: 'short' });
+    const existing = acc.find(item => item.month === month);
+    if (existing) {
+      existing.amount += donation.amount;
+    } else {
+      acc.push({ month, amount: donation.amount });
+    }
+    return acc;
+  }, [] as Array<{month: string, amount: number}>);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading funding reports...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -72,14 +157,13 @@ export const ReportsTab = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Donations</p>
-                <p className="text-2xl font-bold text-primary">$12,450</p>
+                <p className="text-sm text-muted-foreground">Total Private Funding</p>
+                <p className="text-2xl font-bold text-primary">{walletBalance.toFixed(2)} ALGO</p>
               </div>
               <DollarSign className="h-8 w-8 text-primary" />
             </div>
             <div className="flex items-center mt-2">
-              <TrendingUp className="h-4 w-4 text-success mr-1" />
-              <span className="text-sm text-success">+23% from last year</span>
+              <span className="text-sm text-muted-foreground">Available wallet balance</span>
             </div>
           </CardContent>
         </Card>
@@ -88,14 +172,13 @@ export const ReportsTab = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Organizations</p>
-                <p className="text-2xl font-bold text-success">47</p>
+                <p className="text-sm text-muted-foreground">Remaining Funds</p>
+                <p className="text-2xl font-bold text-orange-500">{totalRemainingFunds.toFixed(2)} ALGO</p>
               </div>
-              <BarChart3 className="h-8 w-8 text-success" />
+              <BarChart3 className="h-8 w-8 text-orange-500" />
             </div>
             <div className="flex items-center mt-2">
-              <TrendingUp className="h-4 w-4 text-success mr-1" />
-              <span className="text-sm text-success">+12 new this year</span>
+              <span className="text-sm text-muted-foreground">Unallocated to projects</span>
             </div>
           </CardContent>
         </Card>
@@ -105,13 +188,12 @@ export const ReportsTab = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Avg Donation</p>
-                <p className="text-2xl font-bold text-accent">$265</p>
+                <p className="text-2xl font-bold text-accent">{avgDonation.toFixed(2)} ALGO</p>
               </div>
               <PieChartIcon className="h-8 w-8 text-accent" />
             </div>
             <div className="flex items-center mt-2">
-              <TrendingUp className="h-4 w-4 text-success mr-1" />
-              <span className="text-sm text-success">+8% increase</span>
+              <span className="text-sm text-muted-foreground">Per donation average</span>
             </div>
           </CardContent>
         </Card>
@@ -120,13 +202,13 @@ export const ReportsTab = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Goal Progress</p>
-                <p className="text-2xl font-bold text-info">83%</p>
+                <p className="text-sm text-muted-foreground">Organizations</p>
+                <p className="text-2xl font-bold text-info">{uniqueOrganizations}</p>
               </div>
               <Calendar className="h-8 w-8 text-info" />
             </div>
             <div className="flex items-center mt-2">
-              <span className="text-sm text-muted-foreground">$2,550 remaining</span>
+              <span className="text-sm text-muted-foreground">Unique organizations funded</span>
             </div>
           </CardContent>
         </Card>
@@ -175,7 +257,7 @@ export const ReportsTab = () => {
                     />
                     <span className="text-sm">{category.name}</span>
                   </div>
-                  <span className="text-sm font-medium">${category.amount.toLocaleString()}</span>
+                  <span className="text-sm font-medium">{category.amount.toFixed(2)} ALGO</span>
                 </div>
               ))}
             </div>
@@ -193,35 +275,41 @@ export const ReportsTab = () => {
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={donationsOverTime}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="month" 
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px'
-                    }}
-                    formatter={(value) => [`$${value}`, 'Amount']}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="amount" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {donationsOverTime.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={donationsOverTime}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                      formatter={(value) => [`${value} ALGO`, 'Amount']}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="amount" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No donation data available
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -246,25 +334,35 @@ export const ReportsTab = () => {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { category: 'Education', orgs: 18, total: 8500, avg: 472, percent: 68 },
-                  { category: 'Health & Wellness', orgs: 12, total: 2870, avg: 239, percent: 23 },
-                  { category: 'Environmental', orgs: 8, total: 1080, avg: 135, percent: 9 },
-                  { category: 'Emergency Relief', orgs: 5, total: 0, avg: 0, percent: 0 },
-                  { category: 'Animal Welfare', orgs: 4, total: 0, avg: 0, percent: 0 }
-                ].map((row, index) => (
-                  <tr key={index} className="border-b border-border/50">
-                    <td className="py-3 text-sm font-medium">{row.category}</td>
-                    <td className="py-3 text-sm text-right">{row.orgs}</td>
-                    <td className="py-3 text-sm text-right font-medium">${row.total.toLocaleString()}</td>
-                    <td className="py-3 text-sm text-right">${row.avg}</td>
-                    <td className="py-3 text-sm text-right">
-                      <Badge variant={row.percent > 0 ? "default" : "secondary"}>
-                        {row.percent}%
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
+                {Object.entries(categoryStats).map(([category, total], index) => {
+                  const categoryProjects = projects.filter(p => p.category === category);
+                  let categoryAllocationCount = 0;
+                  donations.forEach(donation => {
+                    if (donation.allocations) {
+                      donation.allocations.forEach(alloc => {
+                        if (categoryProjects.some(p => p.id === alloc.projectId)) {
+                          categoryAllocationCount++;
+                        }
+                      });
+                    }
+                  });
+                  const avgAllocation = categoryAllocationCount > 0 ? total / categoryAllocationCount : 0;
+                  const percent = totalAllocated > 0 ? Math.round((total / totalAllocated) * 100) : 0;
+                  
+                  return (
+                    <tr key={index} className="border-b border-border/50">
+                      <td className="py-3 text-sm font-medium">{category}</td>
+                      <td className="py-3 text-sm text-right">{categoryProjects.length}</td>
+                      <td className="py-3 text-sm text-right font-medium">{total.toFixed(2)} ALGO</td>
+                      <td className="py-3 text-sm text-right">{avgAllocation.toFixed(2)} ALGO</td>
+                      <td className="py-3 text-sm text-right">
+                        <Badge variant={percent > 0 ? "default" : "secondary"}>
+                          {percent}%
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })
               </tbody>
             </table>
           </div>

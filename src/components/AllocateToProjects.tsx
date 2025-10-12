@@ -9,6 +9,7 @@ import { useDonations } from "@/contexts/DonationProvider";
 import { useProjects } from "@/contexts/ProjectProvider";
 import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
+import { TransactionAPI } from "@/lib/transactionAPI";
 import { toast } from "@/components/ui/use-toast";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
@@ -81,6 +82,28 @@ export function AllocateToProjects() {
         amount: AlgorandService.algoToMicroAlgos(allocAmount),
         note: `Fund allocation to ${project.title}`
       });
+
+      // Store sent transaction in CosmosDB (non-blocking)
+      TransactionAPI.storeTransaction({
+        transactionId: `alloc_sent_${Date.now()}`,
+        type: 'sent',
+        organization: project.title,
+        amount: allocAmount,
+        status: 'confirmed',
+        gasUsed: 0.001,
+        notes: `Fund allocation to ${project.title}`
+      }).catch(error => console.error('Failed to store sent transaction:', error));
+
+      // Store received transaction for project (non-blocking)
+      TransactionAPI.storeTransaction({
+        transactionId: `alloc_received_${Date.now()}`,
+        type: 'received',
+        organization: project.organization,
+        amount: allocAmount,
+        status: 'confirmed',
+        gasUsed: 0,
+        notes: `Received allocation for ${project.title}`
+      }).catch(error => console.error('Failed to store received transaction:', error));
 
       addAllocation(selectedDonation, {
         projectName: project.title,
