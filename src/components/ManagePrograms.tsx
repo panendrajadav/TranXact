@@ -59,6 +59,16 @@ export function ManagePrograms() {
     walletAddress: ""
   });
 
+  const [editProject, setEditProject] = useState({
+    title: "",
+    organization: "",
+    description: "",
+    category: "",
+    location: "",
+    target: "",
+    walletAddress: ""
+  });
+
   // Organization wallet addresses
   const NGO_WALLETS = {
     'Rural Development': 'C357R4KJBSBYRAE4XGV4LVNW5RR3AELXTTWNVEGJIEDK3HAM2GTIJTH5RU',
@@ -127,9 +137,12 @@ export function ManagePrograms() {
   };
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   const handleDeleteProject = (projectId: string) => {
     removeProject(projectId);
 =======
+=======
+>>>>>>> Stashed changes
   const handleEditProject = (project: any) => {
     setEditingProject(project.id);
     setEditProject({
@@ -308,6 +321,92 @@ export function ManagePrograms() {
             <div className="flex gap-3">
               <Button onClick={handleCreateProject}>Create Project</Button>
               <Button variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {editingProject && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Project</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editTitle">Project Title</Label>
+                <Input
+                  id="editTitle"
+                  value={editProject.title}
+                  onChange={(e) => setEditProject({...editProject, title: e.target.value})}
+                  placeholder="Enter project title"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="editDescription">Description</Label>
+              <Textarea
+                id="editDescription"
+                value={editProject.description}
+                onChange={(e) => setEditProject({...editProject, description: e.target.value})}
+                placeholder="Describe the project and its impact"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="editCategory">Category</Label>
+                <Select value={editProject.category} onValueChange={(value) => setEditProject({...editProject, category: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Education">Education</SelectItem>
+                    <SelectItem value="Healthcare">Healthcare</SelectItem>
+                    <SelectItem value="Environment">Environment</SelectItem>
+                    <SelectItem value="Disaster Relief">Disaster Relief</SelectItem>
+                    <SelectItem value="Food Security">Food Security</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="editLocation">Location</Label>
+                <Input
+                  id="editLocation"
+                  value={editProject.location}
+                  onChange={(e) => setEditProject({...editProject, location: e.target.value})}
+                  placeholder="Project location"
+                />
+              </div>
+              <div>
+                <Label htmlFor="editTarget">Target Amount (ALGO)</Label>
+                <Input
+                  id="editTarget"
+                  type="number"
+                  value={editProject.target}
+                  onChange={(e) => setEditProject({...editProject, target: e.target.value})}
+                  placeholder="Funding goal"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="editWalletAddress">Project Wallet Address</Label>
+              <Input
+                id="editWalletAddress"
+                value={editProject.walletAddress}
+                onChange={(e) => setEditProject({...editProject, walletAddress: e.target.value})}
+                placeholder="Enter Algorand wallet address for receiving funds"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button onClick={handleUpdateProject} disabled={isUpdating}>
+                {isUpdating ? "Updating..." : "Update Project"}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingProject(null)} disabled={isUpdating}>Cancel</Button>
             </div>
           </CardContent>
         </Card>

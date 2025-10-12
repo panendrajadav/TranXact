@@ -16,6 +16,9 @@ import { toast } from "@/components/ui/use-toast";
 =======
 import { allocationService } from "@/lib/allocationService";
 import { donationService, Donation } from "@/lib/donationService";
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 export function AllocateFunds() {
