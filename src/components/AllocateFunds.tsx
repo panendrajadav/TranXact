@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,11 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
 import { toast } from "@/components/ui/use-toast";
+<<<<<<< Updated upstream
+=======
+import { allocationService } from "@/lib/allocationService";
+import { donationService, Donation } from "@/lib/donationService";
+>>>>>>> Stashed changes
 
 export function AllocateFunds() {
   const { donations, addAllocation } = useDonations();
@@ -21,9 +26,41 @@ export function AllocateFunds() {
   const [selectedProject, setSelectedProject] = useState("");
   const [allocationAmount, setAllocationAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [dbDonations, setDbDonations] = useState<Donation[]>([]);
+  const [loadingDonations, setLoadingDonations] = useState(false);
 
-  // Show all donations for allocation (organizations can allocate any received donations)
-  const receivedDonations = donations;
+  // Fetch donations from database when wallet connects
+  useEffect(() => {
+    const fetchDonations = async () => {
+      if (!isConnected || !account) {
+        setDbDonations([]);
+        return;
+      }
+      
+      setLoadingDonations(true);
+      try {
+        const walletDonations = await donationService.getDonationsByWallet(account);
+        setDbDonations(walletDonations);
+      } catch (error) {
+        console.error('Failed to fetch donations:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load donations",
+          variant: "destructive"
+        });
+      } finally {
+        setLoadingDonations(false);
+      }
+    };
+
+    fetchDonations();
+  }, [account, isConnected]);
+
+  // Filter donations with remaining funds (show only donations that aren't fully allocated)
+  const receivedDonations = dbDonations.filter(donation => {
+    const remaining = donation.amount - (donation.allocatedAmount || 0);
+    return remaining > 0;
+  });
 
   const handleAllocate = async () => {
     if (!isConnected || !account) {
@@ -60,8 +97,8 @@ export function AllocateFunds() {
     if (!donation || !project) return;
 
     // Check if allocation amount doesn't exceed remaining donation
-    const totalAllocated = donation.allocations?.reduce((sum, alloc) => sum + alloc.amount, 0) || 0;
-    const remaining = donation.amount - totalAllocated;
+    const allocated = donation.allocatedAmount || 0;
+    const remaining = donation.amount - allocated;
 
     if (amount > remaining) {
       toast({
@@ -99,6 +136,37 @@ export function AllocateFunds() {
         date: new Date().toISOString()
       });
 
+<<<<<<< Updated upstream
+=======
+      // Store allocation in Cosmos DB
+      try {
+        await allocationService.createAllocation({
+          projectId: selectedProject,
+          projectName: project.title,
+          amount: amount,
+          purpose: `Fund allocation from donation ${selectedDonation}`,
+          allocatedBy: account,
+          walletAddress: account,
+          status: 'completed'
+        });
+        
+        // Update donation allocated amount
+        const donation = receivedDonations.find(d => d.id === selectedDonation);
+        if (donation) {
+          const newAllocatedAmount = (donation.allocatedAmount || 0) + amount;
+          await donationService.updateDonation(selectedDonation, {
+            allocatedAmount: newAllocatedAmount
+          });
+          
+          // Refresh donations list
+          const updatedDonations = await donationService.getDonationsByWallet(account);
+          setDbDonations(updatedDonations);
+        }
+      } catch (dbError) {
+        console.error('Failed to store allocation in database:', dbError);
+      }
+
+>>>>>>> Stashed changes
       // Update project funding
       updateProjectFunding(selectedProject, amount);
 
@@ -154,18 +222,24 @@ export function AllocateFunds() {
       {/* Received Donations */}
       <section>
         <h3 className="text-xl font-semibold mb-4">Received Donations ({receivedDonations.length})</h3>
-        {receivedDonations.length === 0 && (
+        {loadingDonations ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">Loading donations...</p>
+            </CardContent>
+          </Card>
+        ) : receivedDonations.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground">No donations available for allocation.</p>
               <p className="text-sm text-muted-foreground mt-2">Make sure donations have been made through the Send Funds page.</p>
             </CardContent>
           </Card>
-        )}
+        ) : null}
         <div className="space-y-3">
           {receivedDonations.map((donation) => {
-            const totalAllocated = donation.allocations?.reduce((sum, alloc) => sum + alloc.amount, 0) || 0;
-            const remaining = donation.amount - totalAllocated;
+            const allocated = donation.allocatedAmount || 0;
+            const remaining = donation.amount - allocated;
             
             return (
               <Card key={donation.id}>
@@ -178,26 +252,14 @@ export function AllocateFunds() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm">Remaining: <span className="font-medium">{remaining.toFixed(2)} ALGO</span></div>
-                      <Badge variant={remaining > 0 ? "secondary" : "outline"}>
-                        {remaining > 0 ? "Available" : "Fully Allocated"}
-                      </Badge>
+                      <div className="text-xs text-muted-foreground">Allocated: {allocated.toFixed(2)} ALGO</div>
+                      <Badge variant="secondary">Available</Badge>
                     </div>
                   </div>
-                  {donation.allocations && donation.allocations.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="text-sm font-medium mb-2">Allocations:</div>
-                      {donation.allocations.map((alloc, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span>{alloc.projectName}</span>
-                          <span>{alloc.amount.toFixed(2)} ALGO</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             );
-          })}
+          })
         </div>
       </section>
 
@@ -214,14 +276,14 @@ export function AllocateFunds() {
                 <SelectValue placeholder="Choose donation to allocate from" />
               </SelectTrigger>
               <SelectContent>
-                {receivedDonations.filter(d => {
-                  const totalAllocated = d.allocations?.reduce((sum, alloc) => sum + alloc.amount, 0) || 0;
-                  return d.amount > totalAllocated;
-                }).map((donation) => (
-                  <SelectItem key={donation.id} value={donation.id}>
-                    {donation.amount.toFixed(2)} ALGO - {donation.reason}
-                  </SelectItem>
-                ))}
+                {receivedDonations.map((donation) => {
+                  const remaining = donation.amount - (donation.allocatedAmount || 0);
+                  return (
+                    <SelectItem key={donation.id} value={donation.id}>
+                      {remaining.toFixed(2)} ALGO available - {donation.reason}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
