@@ -47,6 +47,28 @@ export const ReportsTab = () => {
       // Load donations from database when wallet connects
       if (account) {
         await loadDonationsFromDB(account);
+        
+        // Also load all donations for public reporting
+        try {
+          const allDonationsResponse = await fetch('http://localhost:3002/api/donations/donor/XG2SGTDHQMMGZECHVU3CH3WXFBLLDNYJIAZ3C2VOGP774IYJMNJ4MEDWAY');
+          const allDonations = await allDonationsResponse.json();
+          
+          // Get organization donations too
+          const orgDonationsResponse = await fetch(`http://localhost:3002/api/donations/organization/${account}`);
+          const orgDonations = await orgDonationsResponse.json();
+          
+          // Combine all donations for reporting
+          const combinedDonations = [...allDonations, ...orgDonations];
+          
+          // Update donations context with all data
+          combinedDonations.forEach(donation => {
+            if (!donations.find(d => d.id === donation.id)) {
+              donations.push(donation);
+            }
+          });
+        } catch (error) {
+          console.error('Failed to load all donations for reporting:', error);
+        }
       }
       
       // Allow loading for private donations even without wallet connection
@@ -148,15 +170,20 @@ export const ReportsTab = () => {
         }
 
         // Fetch additional data from API
-        const [allocs, privateFundsData, remainingFundsData] = await Promise.all([
+        const [allocs, privateFundsData, remainingFundsData, allDonationsData] = await Promise.all([
           TransactionAPI.getAllAllocations().catch(() => []),
           TransactionAPI.getPrivateFunds().catch(() => null),
-          TransactionAPI.getRemainingFunds().catch(() => [])
+          TransactionAPI.getRemainingFunds().catch(() => []),
+          fetch('http://localhost:3002/api/donations/donor/XG2SGTDHQMMGZECHVU3CH3WXFBLLDNYJIAZ3C2VOGP774IYJMNJ4MEDWAY')
+            .then(res => res.json()).catch(() => [])
         ]);
         
         setAllocations(allocs);
         setPrivateFunds(privateFundsData);
         setRemainingFunds(remainingFundsData);
+        
+        // Use all donations data for calculations if available
+        const reportingDonations = allDonationsData.length > 0 ? allDonationsData : donations;
         setLastDataUpdate(new Date().toISOString());
         
       } catch (error) {
@@ -169,12 +196,35 @@ export const ReportsTab = () => {
     fetchAndStoreData();
   }, [donations, projects, isConnected, account, wallet]);
 
-  // Use stored funding statistics or calculate from current data
-  const totalFunds = fundingStats?.totalFunds || donations.reduce((sum, donation) => sum + donation.amount, 0);
-  const totalAllocated = fundingStats?.totalAllocated || donations.reduce((sum, donation) => {
+  // Use all donations for public reporting
+  const [allDonationsForReporting, setAllDonationsForReporting] = useState([]);
+  
+  useEffect(() => {
+    const fetchAllDonations = async () => {
+      try {
+        const response = await fetch('http://localhost:3002/api/donations/donor/XG2SGTDHQMMGZECHVU3CH3WXFBLLDNYJIAZ3C2VOGP774IYJMNJ4MEDWAY');
+        const allDonations = await response.json();
+        console.log('Donations in reports:', allDonations);
+        setAllDonationsForReporting(allDonations);
+      } catch (error) {
+        console.error('Failed to fetch all donations:', error);
+      }
+    };
+    fetchAllDonations();
+  }, []);
+  
+  // Use all donations for calculations
+  const reportingDonations = allDonationsForReporting.length > 0 ? allDonationsForReporting : donations;
+  console.log('Private donations processed:', reportingDonations);
+  
+  const totalFunds = reportingDonations.reduce((sum, donation) => sum + donation.amount, 0);
+  const totalAllocated = reportingDonations.reduce((sum, donation) => {
     const donationAllocations = donation.allocations || [];
     return sum + donationAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
   }, 0);
+  
+  console.log('Total funds calculated:', totalFunds);
+  console.log('Total allocated calculated:', totalAllocated);
   const totalRemainingFunds = fundingStats?.remainingFunds || (walletBalance - totalAllocated);
   const uniqueOrganizations = fundingStats?.uniqueOrganizations || new Set(donations.map(d => d.organizationName)).size;
   const avgDonation = fundingStats?.avgDonation || (donations.length > 0 ? totalFunds / donations.length : 0);
@@ -182,10 +232,21 @@ export const ReportsTab = () => {
     return sum + (donation.allocations?.length || 0);
   }, 0);
 
-  // Group allocations by project category using donation allocations
+  // Group allocations by project using all donations
+  const projectStats = {};
+  reportingDonations.forEach(donation => {
+    if (donation.allocations) {
+      donation.allocations.forEach(alloc => {
+        const projectName = alloc.projectName || 'Unknown Project';
+        projectStats[projectName] = (projectStats[projectName] || 0) + alloc.amount;
+      });
+    }
+  });
+  
+  // Group by category for category chart
   const categoryStats = projects.reduce((acc, project) => {
     let categoryAmount = 0;
-    donations.forEach(donation => {
+    reportingDonations.forEach(donation => {
       if (donation.allocations) {
         donation.allocations.forEach(alloc => {
           if (alloc.projectId === project.id) {
@@ -258,12 +319,12 @@ export const ReportsTab = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Private Funding</p>
-                <p className="text-2xl font-bold text-primary">{walletBalance.toFixed(2)} ALGO</p>
+                <p className="text-2xl font-bold text-primary">{totalFunds.toFixed(2)} ALGO</p>
               </div>
               <DollarSign className="h-8 w-8 text-primary" />
             </div>
             <div className="flex items-center mt-2">
-              <span className="text-sm text-muted-foreground">Available wallet balance</span>
+              <span className="text-sm text-muted-foreground">Total funding received</span>
             </div>
           </CardContent>
         </Card>
@@ -272,13 +333,13 @@ export const ReportsTab = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Remaining Funds</p>
-                <p className="text-2xl font-bold text-orange-500">{totalRemainingFunds.toFixed(2)} ALGO</p>
+                <p className="text-sm text-muted-foreground">Total Allocated</p>
+                <p className="text-2xl font-bold text-orange-500">{totalAllocated.toFixed(2)} ALGO</p>
               </div>
               <BarChart3 className="h-8 w-8 text-orange-500" />
             </div>
             <div className="flex items-center mt-2">
-              <span className="text-sm text-muted-foreground">Unallocated to projects</span>
+              <span className="text-sm text-muted-foreground">Allocated to projects</span>
             </div>
           </CardContent>
         </Card>
@@ -316,6 +377,64 @@ export const ReportsTab = () => {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Project Funding Chart */}
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2 text-success" />
+              Project Funding Allocation
+            </CardTitle>
+            <CardDescription>Funds allocated to each project</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              {Object.keys(projectStats).length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={Object.entries(projectStats).map(([name, amount]) => ({ name, amount }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                      formatter={(value) => [`${value} ALGO`, 'Allocated']}
+                    />
+                    <Bar 
+                      dataKey="amount" 
+                      fill="hsl(var(--primary))" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No project allocations available
+                </div>
+              )}
+            </div>
+            <div className="mt-4 space-y-2">
+              {Object.entries(projectStats).map(([project, amount], index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <span className="text-sm">{project}</span>
+                  <span className="text-sm font-medium">{amount.toFixed(2)} ALGO</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
         {/* Donations by Category */}
         <Card className="shadow-card">
           <CardHeader>

@@ -108,10 +108,10 @@ const Assistance = () => {
             <h3 className="text-xl font-semibold mb-4">Other Ways to Reach Us</h3>
             <div className="flex justify-center gap-8 text-muted-foreground">
               <div>
-                <strong>Email:</strong> support@tranxact.com
+                <strong>Email:</strong> panendrajadav@gmail.com
               </div>
               <div>
-                <strong>Phone:</strong> +1 (555) 123-4567
+                <strong>Phone:</strong> +(91) 7780590938
               </div>
             </div>
           </section>

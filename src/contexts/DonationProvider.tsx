@@ -41,6 +41,83 @@ export function useDonations() {
 export function DonationProvider({ children }: { children: ReactNode }) {
   const [donations, setDonations] = useState<Donation[]>([]);
 
+  // Initialize with sample data for testing
+  useEffect(() => {
+    const initializeSampleData = () => {
+      const existingData = localStorage.getItem('tranxact-donations');
+      if (!existingData || JSON.parse(existingData).length === 0) {
+        const sampleDonations: Donation[] = [
+          {
+            id: 'sample-1',
+            donorAddress: 'SAMPLE_DONOR_1',
+            organizationName: 'United Nations',
+            amount: 1000,
+            reason: 'Supporting global humanitarian efforts',
+            date: new Date().toISOString(),
+            transactionId: 'sample-tx-1',
+            allocations: [
+              {
+                projectName: 'Clean Water Initiative',
+                amount: 400,
+                status: 'completed',
+                date: new Date().toISOString()
+              },
+              {
+                projectName: 'Education for All',
+                amount: 350,
+                status: 'completed',
+                date: new Date().toISOString()
+              },
+              {
+                projectName: 'Healthcare Access',
+                amount: 250,
+                status: 'in-progress',
+                date: new Date().toISOString()
+              }
+            ]
+          },
+          {
+            id: 'sample-2',
+            donorAddress: 'SAMPLE_DONOR_2',
+            organizationName: 'Ashaa Foundations',
+            amount: 750,
+            reason: 'Supporting education initiatives',
+            date: new Date(Date.now() - 86400000).toISOString(),
+            transactionId: 'sample-tx-2',
+            allocations: [
+              {
+                projectName: 'Education for All',
+                amount: 500,
+                status: 'completed',
+                date: new Date().toISOString()
+              },
+              {
+                projectName: 'Disaster Relief Fund',
+                amount: 250,
+                status: 'completed',
+                date: new Date().toISOString()
+              }
+            ]
+          }
+        ];
+        
+        setDonations(sampleDonations);
+        localStorage.setItem('tranxact-donations', JSON.stringify(sampleDonations));
+      } else {
+        setDonations(JSON.parse(existingData));
+      }
+    };
+
+    initializeSampleData();
+  }, []);
+
+  // Save to localStorage whenever donations change
+  useEffect(() => {
+    if (donations.length > 0) {
+      localStorage.setItem('tranxact-donations', JSON.stringify(donations));
+    }
+  }, [donations]);
+
 
 
   const addDonation = (donation: Omit<Donation, 'id' | 'allocations'>) => {
@@ -102,6 +179,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
 
   const clearDonations = () => {
     setDonations([]);
+    localStorage.removeItem('tranxact-donations');
   };
 
   return (

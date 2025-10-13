@@ -7,6 +7,9 @@ import { TransactionService } from "@/lib/transactionService";
 import { useProjects } from "@/contexts/ProjectProvider";
 import { useDonations } from "@/contexts/DonationProvider";
 import { useAuth } from "@/contexts/AuthProvider";
+import { AlgorandService } from "@/lib/algorand";
+import { APP_CONFIG } from "@/lib/config";
+import { TransactionAPI } from "@/lib/transactionAPI";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 import {
   ResponsiveContainer,
@@ -28,10 +31,12 @@ type Props = {
 const DashboardReports = ({ isPublic = false }: Props) => {
   const [showDialog, setShowDialog] = useState(false);
 
-  const { account } = useWallet();
+  const { wallet, account } = useWallet();
   const { projects } = useProjects();
   const { donations } = useDonations();
   const { userType } = useAuth();
+  const [walletBalances, setWalletBalances] = useState<{[key: string]: number}>({});
+  const [organizationDonations, setOrganizationDonations] = useState<any[]>([]);
 
   // projectData will be derived from real transactions when isPublic
   const [projectData, setProjectData] = useState(() => projects.map(p => ({
@@ -47,121 +52,59 @@ const DashboardReports = ({ isPublic = false }: Props) => {
   const [totalSpent, setTotalSpent] = useState(0);
 
   useEffect(() => {
-    const load = async () => {
-      if (!isPublic || !account) return;
-
-      const transactionService = new TransactionService();
-
-      // Fetch recent transactions for the connected public account
-      const txs = await transactionService.getAccountTransactions(account, 200);
-
-      // Map project wallets to aggregates
-      const projectMap: Record<string, { funded: number; spent: number; id?: string; name?: string }> = {};
-      projects.forEach(p => {
-        projectMap[p.wallet] = { funded: 0, spent: 0, id: p.id, name: p.title };
-      });
-
-      let fundedSum = 0;
-      let spentSum = 0;
-
-      txs.forEach(tx => {
-        const amt = tx.amount || 0;
-
-        // Funding: transactions sent by the public account to a project
-        if (tx.type === 'sent') {
-          const receiver = (tx.receiver || '').toString();
-
-          // 1) Direct wallet match
-          if (receiver && projectMap[receiver]) {
-            projectMap[receiver].funded += amt;
-            fundedSum += amt;
-            return;
-          }
-
-          // 2) Try matching via decoded note, project id, title, or organization
-          const note = (tx.note || '').toLowerCase();
-          let matched = false;
-          for (const p of projects) {
-            const title = (p.title || '').toLowerCase();
-            const org = (p.organization || '').toLowerCase();
-            const pid = (p.id || '').toLowerCase();
-            if (note.includes(title) || note.includes(org) || note.includes(pid)) {
-              projectMap[p.wallet].funded += amt;
-              fundedSum += amt;
-              matched = true;
-              break;
-            }
-          }
-          if (matched) return;
-
-          // 3) Fallback: case-insensitive wallet match
-          for (const w in projectMap) {
-            if (w.toLowerCase() === receiver.toLowerCase()) {
-              projectMap[w].funded += amt;
-              fundedSum += amt;
-              matched = true;
-              break;
-            }
-          }
-          if (matched) return;
+    const fetchWalletBalances = async () => {
+      if (!wallet || !isPublic) return;
+      
+      const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+      const balances: {[key: string]: number} = {};
+      
+      for (const project of projects) {
+        try {
+          const balance = await algoService.getBalance(project.wallet);
+          balances[project.wallet] = balance;
+        } catch (error) {
+          console.error(`Failed to fetch balance for ${project.title}:`, error);
+          balances[project.wallet] = 0;
         }
-
-        // Spent/returns: transactions received by the public account from project wallets
-        if (tx.type === 'received') {
-          const sender = (tx.sender || '').toString();
-          if (sender && projectMap[sender]) {
-            projectMap[sender].spent += amt;
-            spentSum += amt;
-            return;
-          }
-
-          const note = (tx.note || '').toLowerCase();
-          for (const p of projects) {
-            const title = (p.title || '').toLowerCase();
-            const org = (p.organization || '').toLowerCase();
-            const pid = (p.id || '').toLowerCase();
-            if (note.includes(title) || note.includes(org) || note.includes(pid)) {
-              projectMap[p.wallet].spent += amt;
-              spentSum += amt;
-              break;
-            }
-          }
-        }
-      });
-
-      // Build projectData with colors
-      const colors = ['hsl(147 86% 40%)', 'hsl(37 100% 55%)', 'hsl(217 91% 60%)', 'hsl(280 80% 60%)', 'hsl(200 80% 40%)'];
-      const pd = projects.map((p, idx) => ({
-        id: p.id,
-        name: p.title,
-        wallet: p.wallet,
-        funded: projectMap[p.wallet]?.funded || 0,
-        spent: projectMap[p.wallet]?.spent || 0,
-        color: colors[idx % colors.length]
-      }));
-
-      setProjectData(pd);
-      setTotalFunded(fundedSum);
-      setTotalSpent(spentSum);
+      }
+      
+      setWalletBalances(balances);
     };
 
-    load();
-  }, [isPublic, account, projects]);
+    const fetchOrganizationDonations = async () => {
+      if (account && isPublic) {
+        try {
+          const orgDonations = await TransactionAPI.getOrganizationDonations(account);
+          setOrganizationDonations(orgDonations);
+        } catch (error) {
+          console.error('Failed to fetch organization donations:', error);
+        }
+      }
+    };
 
-  // Calculate funding data from donations for public view
+    fetchWalletBalances();
+    fetchOrganizationDonations();
+  }, [wallet, account, projects, isPublic]);
+
+  // Calculate total funding using wallet balances + unallocated donations (same as PublicDashboard)
+  const totalWalletBalance = Object.values(walletBalances).reduce((sum, balance) => sum + balance, 0);
+  const totalAllocations = organizationDonations.reduce((sum, donation) => {
+    const allocated = donation.allocations?.reduce((allocSum: number, alloc: any) => allocSum + alloc.amount, 0) || 0;
+    return sum + allocated;
+  }, 0);
+  const totalDonationsReceived = organizationDonations.reduce((sum, donation) => sum + donation.amount, 0);
+  const unallocatedDonations = totalDonationsReceived - totalAllocations;
+  const totalFunding = totalWalletBalance + unallocatedDonations;
+  const remainingFunds = totalFunding - totalWalletBalance;
+
+  // Use wallet balances for project funding data
   const projectFundingData = projects.map((project, idx) => {
-    // Calculate total funded by private users to this project
-    const totalFunded = donations.reduce((sum, donation) => {
-      const projectAllocations = donation.allocations?.filter(alloc => 
-        alloc.projectName === project.title
-      ) || [];
-      return sum + projectAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
-    }, 0);
+    const walletBalance = walletBalances[project.wallet] || 0;
     
     return {
       name: project.title,
-      funded: totalFunded,
-      allocated: totalFunded, // In this context, funded = allocated
+      funded: walletBalance,
+      allocated: walletBalance,
       color: `hsl(${idx * 137.5 % 360}, 70%, 50%)`
     };
   });
@@ -194,33 +137,53 @@ const DashboardReports = ({ isPublic = false }: Props) => {
   }));
 
   // Debug logging
-  console.log('Donations in reports:', donations);
-  console.log('Private donations processed:', privateDonations);
+  console.log('Wallet Balances:', walletBalances);
+  console.log('Total Wallet Balance:', totalWalletBalance);
+  console.log('Total Funding:', totalFunding);
+  console.log('Project funding data:', projectFundingData);
 
   if (isPublic) {
     return (
       <div className="space-y-8">
         <section>
-          <h2 className="text-2xl font-semibold mb-4">Public Funding Summary</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-semibold">Public Funding Summary</h2>
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  console.log('=== DEBUG INFO ===');
+                  console.log('Donations:', donations);
+                  console.log('Projects:', projects);
+                  console.log('Project Funding Data:', projectFundingData);
+                  console.log('Pie Data:', pieData);
+                  console.log('Bar Data:', barData);
+                }}
+              >
+                Debug Data
+              </Button>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground">Total Private Funding</div>
-                <div className="text-2xl font-bold">{projectFundingData.reduce((sum, p) => sum + p.funded, 0).toFixed(2)} ALGO</div>
+                <div className="text-sm text-muted-foreground">Total Funding</div>
+                <div className="text-2xl font-bold text-primary">{totalFunding.toFixed(2)} ALGO</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="p-6">
                 <div className="text-sm text-muted-foreground">Total Allocated</div>
-                <div className="text-2xl font-bold text-orange-600">{projectFundingData.reduce((sum, p) => sum + p.allocated, 0).toFixed(2)} ALGO</div>
+                <div className="text-2xl font-bold text-green-600">{totalWalletBalance.toFixed(2)} ALGO</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground">Active Projects</div>
-                <div className="text-2xl font-bold text-primary">{projects.length}</div>
+                <div className="text-sm text-muted-foreground">Remaining Funds</div>
+                <div className="text-2xl font-bold text-orange-600">{remainingFunds.toFixed(2)} ALGO</div>
               </CardContent>
             </Card>
           </div>
@@ -231,54 +194,87 @@ const DashboardReports = ({ isPublic = false }: Props) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Private User Funding by Project</CardTitle>
-                <CardDescription>How much private users funded to each project</CardDescription>
+                <CardTitle>Fund Allocation by Project</CardTitle>
+                <CardDescription>Distribution of allocated funds across projects</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => `${value.toLocaleString()} ALGO`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="mt-4 space-y-2">
-                  {(isPublic ? projectFundingData : projectData).map((p, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: p.color }} />
-                        <span className="text-sm">{p.name}</span>
-                      </div>
-                      <span className="text-sm font-medium">{p.funded.toFixed(2)} ALGO</span>
+                {pieData.filter(p => p.value > 0).length > 0 ? (
+                  <>
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie 
+                            data={pieData.filter(p => p.value > 0)} 
+                            dataKey="value" 
+                            nameKey="name" 
+                            cx="50%" 
+                            cy="50%" 
+                            outerRadius={80} 
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          >
+                            {pieData.filter(p => p.value > 0).map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: number) => [`${value.toFixed(2)} ALGO`, 'Allocated']} />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                  ))}
-                </div>
+                    <div className="mt-4 space-y-2">
+                      {projectFundingData.filter(p => p.allocated > 0).map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: p.color }} />
+                            <span className="text-sm">{p.name}</span>
+                          </div>
+                          <span className="text-sm font-medium">{p.allocated.toFixed(2)} ALGO</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-72 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <div className="text-4xl mb-2">📊</div>
+                      <p>No fund allocations yet</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Funded vs Allocated (Bar)</CardTitle>
-                <CardDescription>Comparison of funded vs allocated amounts per project</CardDescription>
+                <CardTitle>Project Funding Comparison</CardTitle>
+                <CardDescription>Allocated amounts per project</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis />
-                      <Tooltip formatter={(value: number) => `${value.toLocaleString()} ALGO`} />
-                      <Bar dataKey="Funded" fill="hsl(147 86% 40%)" />
-                      <Bar dataKey="Allocated" fill="hsl(37 100% 55%)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {barData.filter(p => p.Allocated > 0).length > 0 ? (
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={barData.filter(p => p.Allocated > 0)} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis 
+                          dataKey="name" 
+                          tick={{ fontSize: 12 }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis />
+                        <Tooltip formatter={(value: number) => [`${value.toFixed(2)} ALGO`, 'Allocated']} />
+                        <Bar dataKey="Allocated" fill="hsl(147 86% 40%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-72 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <div className="text-4xl mb-2">📈</div>
+                      <p>No fund allocations yet</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
