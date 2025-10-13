@@ -6,11 +6,13 @@ import { useWallet } from "@/contexts/WalletProvider";
 import { useAuth } from "@/contexts/AuthProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
+import { getWalletGreeting } from "@/lib/walletGreeting";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 export function PrivateDashboard() {
   const { wallet, account, isConnected } = useWallet();
   const { userName } = useAuth();
+  const walletGreeting = getWalletGreeting(account);
   const [balance, setBalance] = useState<number | null>(null);
   const [showDialog, setShowDialog] = useState(false);
 
@@ -54,7 +56,7 @@ export function PrivateDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold">Welcome, {userName || (account ? 'Wallet User' : 'Private Donor')}!</h1>
+          <h1 className="text-4xl font-bold">Welcome, {walletGreeting || userName || (account ? 'Wallet User' : 'Private Donor')}!</h1>
           <p className="text-muted-foreground text-lg">Track your personal donations and impact</p>
         </div>
         <div className="text-right">

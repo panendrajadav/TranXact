@@ -6,6 +6,8 @@ const transactionRoutes = require('./routes/transactions');
 const donationRoutes = require('./routes/donations');
 const projectRoutes = require('./routes/projects');
 const reportRoutes = require('./routes/reports');
+const settingsRoutes = require('./routes/settings');
+const userRoutes = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -34,6 +36,12 @@ app.use('/api/projects', projectRoutes);
 
 // Report routes
 app.use('/api/reports', reportRoutes);
+
+// Settings routes
+app.use('/api/settings', settingsRoutes);
+
+// User routes
+app.use('/api/users', userRoutes);
 
 // Catch all route (must be last)
 app.all('*', (req, res) => {

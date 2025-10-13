@@ -1,4 +1,4 @@
-import { ReactNode, createContext, useContext, useState } from 'react';
+import { ReactNode, createContext, useContext, useState, useEffect } from 'react';
 
 export type UserType = 'private' | 'public' | null;
 
@@ -34,23 +34,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Load saved data on mount
-  useState(() => {
+  useEffect(() => {
     const savedAuth = localStorage.getItem('isAuthenticated');
     const savedType = localStorage.getItem('userType') as UserType;
     const savedName = localStorage.getItem('userName');
-    const savedEmail = localStorage.getItem('userEmail');
-    const savedPhone = localStorage.getItem('userPhone');
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
     
     if (savedAuth === 'true' && savedType) {
       setIsAuthenticated(true);
       setUserType(savedType);
       setUserName(savedName || '');
-      setUserEmail(savedEmail || '');
-      setUserPhone(savedPhone || '');
       setTheme(savedTheme || 'light');
+      // Don't load email/phone from localStorage - let components fetch from DB
     }
-  });
+  }, []);
 
   const login = (type: UserType) => {
     setUserType(type);
