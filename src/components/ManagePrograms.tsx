@@ -12,6 +12,7 @@ import { useProjects } from "@/contexts/ProjectProvider";
 import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
+import { TransactionService } from "@/lib/transactionService";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 import { toast } from "@/components/ui/use-toast";
 
@@ -42,6 +43,7 @@ export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {})
   const { projects, addProject, removeProject, updateProject } = useProjects();
   const { wallet } = useWallet();
   const [walletBalances, setWalletBalances] = useState<{[key: string]: number}>({});
+  const [transactionCounts, setTransactionCounts] = useState<{[key: string]: number}>({});
 
 
   const [newProject, setNewProject] = useState({
@@ -71,31 +73,53 @@ export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {})
     'Child Healthcare': 'Q2DY24TCFJHIFQO7QAPKMETED5BKKVKQ7UVOCIEREIUUZ7DDKMZMJ2RHRI'
   } as const;
 
-  // Fetch wallet balances
+  // Fetch wallet balances and transaction counts
   useEffect(() => {
-    const fetchBalances = async () => {
+    const fetchData = async () => {
       if (!wallet) return;
       
       const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+      const transactionService = new TransactionService();
       const balances: {[key: string]: number} = {};
+      const txCounts: {[key: string]: number} = {};
       
       for (const project of projects) {
         try {
           const balance = await algoService.getBalance(project.wallet);
           balances[project.wallet] = balance;
+          
+          const transactions = await transactionService.getAccountTransactions(project.wallet, 100);
+          txCounts[project.wallet] = transactions.filter(tx => tx.type === 'received').length;
         } catch (error) {
-          console.error(`Failed to fetch balance for ${project.title}:`, error);
+          console.error(`Failed to fetch data for ${project.title}:`, error);
           balances[project.wallet] = 0;
+          txCounts[project.wallet] = 0;
         }
       }
       
       setWalletBalances(balances);
+      setTransactionCounts(txCounts);
+      
+      // Update backers and raised in database
+      for (const project of projects) {
+        const currentTxCount = txCounts[project.wallet] || 0;
+        const currentBalance = balances[project.wallet] || 0;
+        try {
+          await fetch(`http://localhost:3002/api/projects/${project.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ backers: currentTxCount, raised: currentBalance })
+          });
+        } catch (error) {
+          console.error(`Failed to update project data for ${project.title}:`, error);
+        }
+      }
     };
     
-    fetchBalances();
+    fetchData();
     
-    // Refresh balances every 10 seconds
-    const interval = setInterval(fetchBalances, 10000);
+    // Refresh data every 10 seconds
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, [wallet, projects]);
 
@@ -399,7 +423,13 @@ export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {})
             }`}
           >
             <div className="h-48 rounded-t-lg overflow-hidden relative">
-              <img src="src/assets/children.jpg" alt={project.title} className="object-cover w-full h-full" />
+              <img 
+                src={project.title === "Emergency Food Supplies" ? "src/assets/emergencyfoodsupplies.png" : 
+                     project.title === "Rural Development" ? "src/assets/ruraldevelopment.png" : 
+                     "src/assets/children.jpg"} 
+                alt={project.title} 
+                className="object-cover w-full h-full" 
+              />
               <Badge className="absolute top-3 right-3 text-white bg-primary">
                 Active
               </Badge>
@@ -442,7 +472,7 @@ export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {})
               <div className="flex justify-between text-sm text-muted-foreground">
                 <div className="flex items-center">
                   <Target className="h-4 w-4 mr-1" />
-                  {project.backers} backers
+                  {transactionCounts[project.wallet] || 0} backers
                 </div>
               </div>
               <div className="flex gap-2">

@@ -4,31 +4,83 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import { Calendar, MapPin, Target } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProjects } from "@/contexts/ProjectProvider";
 import { useDonations } from "@/contexts/DonationProvider";
+import { useWallet } from "@/contexts/WalletProvider";
+import { AlgorandService } from "@/lib/algorand";
+import { APP_CONFIG } from "@/lib/config";
+import { TransactionService } from "@/lib/transactionService";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 
 const Projects = () => {
   const [showDialog, setShowDialog] = useState(false);
   const { projects } = useProjects();
   const { donations } = useDonations();
+  const { wallet } = useWallet();
+  const [walletBalances, setWalletBalances] = useState<{[key: string]: number}>({});
+  const [transactionCounts, setTransactionCounts] = useState<{[key: string]: number}>({});
 
-  // Calculate actual allocated funds for each project
+  // Fetch wallet balances and transaction counts
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!wallet) return;
+      
+      const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+      const transactionService = new TransactionService();
+      const balances: {[key: string]: number} = {};
+      const txCounts: {[key: string]: number} = {};
+      
+      for (const project of projects) {
+        try {
+          const balance = await algoService.getBalance(project.wallet);
+          balances[project.wallet] = balance;
+          
+          const transactions = await transactionService.getAccountTransactions(project.wallet, 100);
+          txCounts[project.wallet] = transactions.filter(tx => tx.type === 'received').length;
+        } catch (error) {
+          console.error(`Failed to fetch data for ${project.title}:`, error);
+          balances[project.wallet] = 0;
+          txCounts[project.wallet] = 0;
+        }
+      }
+      
+      setWalletBalances(balances);
+      setTransactionCounts(txCounts);
+      
+      // Update backers and raised in database
+      for (const project of projects) {
+        const currentTxCount = txCounts[project.wallet] || 0;
+        const currentBalance = balances[project.wallet] || 0;
+        try {
+          await fetch(`http://localhost:3002/api/projects/${project.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ backers: currentTxCount, raised: currentBalance })
+          });
+        } catch (error) {
+          console.error(`Failed to update project data for ${project.title}:`, error);
+        }
+      }
+    };
+    
+    fetchData();
+  }, [wallet, projects]);
+
+  // Use wallet balances and transaction counts for project data
   const projectsWithAllocations = projects.map(project => {
-    const allocatedAmount = donations.reduce((sum, donation) => {
-      const projectAllocations = donation.allocations?.filter(alloc => 
-        alloc.projectName === project.title
-      ) || [];
-      return sum + projectAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
-    }, 0);
+    const walletBalance = walletBalances[project.wallet] || 0;
+    const txCount = transactionCounts[project.wallet] || 0;
     
     return {
       ...project,
-      raised: allocatedAmount,
+      raised: walletBalance,
+      backers: txCount,
       daysLeft: Math.floor(Math.random() * 60) + 10,
-      status: allocatedAmount >= project.target ? "completed" : "active",
-      image: "src/assets/children.jpg"
+      status: walletBalance >= project.target ? "completed" : "active",
+      image: project.title === "Emergency Food Supplies" ? "src/assets/emergencyfoodsupplies.png" : 
+             project.title === "Rural Development" ? "src/assets/ruraldevelopment.png" : 
+             "src/assets/children.jpg"
     };
   });
 
@@ -80,13 +132,13 @@ const Projects = () => {
             </Card>
             <Card>
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary">{projectsWithAllocations.reduce((sum, p) => sum + p.raised, 0).toFixed(0)} ALGO</div>
+                <div className="text-3xl font-bold text-primary">{Object.values(walletBalances).reduce((sum, balance) => sum + balance, 0).toFixed(2)} ALGO</div>
                 <div className="text-muted-foreground">Funds Raised</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary">{projectsWithAllocations.reduce((sum, p) => sum + p.backers, 0)}</div>
+                <div className="text-3xl font-bold text-primary">{Object.values(transactionCounts).reduce((sum, count) => sum + count, 0)}</div>
                 <div className="text-muted-foreground">Total Backers</div>
               </CardContent>
             </Card>

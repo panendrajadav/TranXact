@@ -46,6 +46,35 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Update project
+router.put('/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const updates = req.body;
+
+    // Find project using query
+    const querySpec = {
+      query: 'SELECT * FROM c WHERE c.id = @id',
+      parameters: [{ name: '@id', value: projectId }]
+    };
+    
+    const { resources } = await projectContainer.items.query(querySpec).fetchAll();
+    
+    if (resources.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    const project = { ...resources[0], ...updates };
+    
+    // Use upsert to update
+    const { resource } = await projectContainer.items.upsert(project);
+    res.json(resource);
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Update project funding
 router.put('/:projectId/funding', async (req, res) => {
   try {
@@ -73,6 +102,33 @@ router.put('/:projectId/funding', async (req, res) => {
     res.json(resource);
   } catch (error) {
     console.error('Error updating project funding:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete project
+router.delete('/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // Find project using query
+    const querySpec = {
+      query: 'SELECT * FROM c WHERE c.id = @id',
+      parameters: [{ name: '@id', value: projectId }]
+    };
+    
+    const { resources } = await projectContainer.items.query(querySpec).fetchAll();
+    
+    if (resources.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    const project = resources[0];
+    await projectContainer.item(project.id).delete();
+    
+    res.json({ message: 'Project deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting project:', error);
     res.status(500).json({ error: error.message });
   }
 });
