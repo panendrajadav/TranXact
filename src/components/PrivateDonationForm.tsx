@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TransactionAPI } from "@/lib/transactionAPI";
+import { ReportsService } from "@/lib/reportsService";
 import { toast } from "@/components/ui/use-toast";
 
 export function PrivateDonationForm() {
@@ -46,6 +47,23 @@ export function PrivateDonationForm() {
         date: new Date().toISOString(),
         transactionId: `private_${Date.now()}`
       });
+
+      // Update reports data
+      try {
+        const walletAddress = donorName || 'private_donor';
+        await ReportsService.storeFundingStatistics({
+          walletAddress,
+          totalFunds: donationAmount,
+          totalAllocated: 0,
+          remainingFunds: donationAmount,
+          uniqueOrganizations: 1,
+          avgDonation: donationAmount,
+          totalAllocationCount: 0,
+          lastUpdated: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Failed to update reports:', error);
+      }
 
       toast({
         title: "Private Donation Added",

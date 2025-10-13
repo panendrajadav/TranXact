@@ -5,6 +5,7 @@ require('dotenv').config();
 const transactionRoutes = require('./routes/transactions');
 const donationRoutes = require('./routes/donations');
 const projectRoutes = require('./routes/projects');
+const reportRoutes = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -30,6 +31,9 @@ app.use('/api/donations', donationRoutes);
 
 // Project routes
 app.use('/api/projects', projectRoutes);
+
+// Report routes
+app.use('/api/reports', reportRoutes);
 
 // Catch all route (must be last)
 app.all('*', (req, res) => {

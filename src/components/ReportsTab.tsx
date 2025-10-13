@@ -23,6 +23,7 @@ import {
   DollarSign
 } from "lucide-react";
 import { TransactionAPI } from '@/lib/transactionAPI';
+import { ReportsService } from '@/lib/reportsService';
 import { useDonations } from '@/contexts/DonationProvider';
 import { useProjects } from '@/contexts/ProjectProvider';
 import { useWallet } from '@/contexts/WalletProvider';
@@ -39,51 +40,140 @@ export const ReportsTab = () => {
   const [remainingFunds, setRemainingFunds] = useState<any[]>([]);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [lastDataUpdate, setLastDataUpdate] = useState<string>('');
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchAndStoreData = async () => {
+      // Allow loading for private donations even without wallet connection
+      const walletAddress = account || 'private_donor';
+
       try {
-        const [stats, allocs, privateFundsData, remainingFundsData] = await Promise.all([
-          TransactionAPI.getFundingStatistics().catch(() => null),
+        // Fetch wallet balance if connected
+        let balance = 0;
+        if (isConnected && account && wallet) {
+          const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+          balance = await algoService.getBalance(account);
+        }
+        setWalletBalance(balance);
+
+        // Calculate real statistics from donations and allocations
+        const totalFunds = donations.reduce((sum, donation) => sum + donation.amount, 0);
+        const totalAllocated = donations.reduce((sum, donation) => {
+          const donationAllocations = donation.allocations || [];
+          return sum + donationAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
+        }, 0);
+        const totalRemainingFunds = balance - totalAllocated;
+        const uniqueOrganizations = new Set(donations.map(d => d.organizationName)).size;
+        const avgDonation = donations.length > 0 ? totalFunds / donations.length : 0;
+        const totalAllocationCount = donations.reduce((sum, donation) => {
+          return sum + (donation.allocations?.length || 0);
+        }, 0);
+
+        // Store funding statistics in database
+        const fundingStatsData = {
+          walletAddress: account || 'private_donor',
+          totalFunds,
+          totalAllocated,
+          remainingFunds: totalRemainingFunds,
+          uniqueOrganizations,
+          avgDonation,
+          totalAllocationCount,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        await ReportsService.storeFundingStatistics(fundingStatsData);
+        setFundingStats(fundingStatsData);
+
+        // Calculate and store category statistics
+        const categoryStats = projects.reduce((acc, project) => {
+          let categoryAmount = 0;
+          donations.forEach(donation => {
+            if (donation.allocations) {
+              donation.allocations.forEach(alloc => {
+                if (alloc.projectId === project.id) {
+                  categoryAmount += alloc.amount;
+                }
+              });
+            }
+          });
+          
+          if (categoryAmount > 0) {
+            acc[project.category] = (acc[project.category] || 0) + categoryAmount;
+          }
+          return acc;
+        }, {} as Record<string, number>);
+
+        const donationsByCategory = Object.entries(categoryStats).map(([name, amount], index) => {
+          const colors = ['hsl(147 86% 40%)', 'hsl(37 100% 55%)', 'hsl(217 91% 60%)', 'hsl(280 100% 70%)', 'hsl(25 95% 53%)'];
+          const percentage = totalAllocated > 0 ? (amount / totalAllocated) * 100 : 0;
+          return {
+            name,
+            value: Math.round(percentage),
+            amount,
+            color: colors[index % colors.length]
+          };
+        });
+
+        if (donationsByCategory.length > 0) {
+          await ReportsService.storeCategoryStatistics({
+            walletAddress,
+            categoryData: donationsByCategory,
+            lastUpdated: new Date().toISOString()
+          });
+        }
+
+        // Calculate and store donations timeline
+        const donationsOverTime = donations.reduce((acc, donation) => {
+          const month = new Date(donation.date).toLocaleDateString('en-US', { month: 'short' });
+          const existing = acc.find(item => item.month === month);
+          if (existing) {
+            existing.amount += donation.amount;
+          } else {
+            acc.push({ month, amount: donation.amount });
+          }
+          return acc;
+        }, [] as Array<{month: string, amount: number}>);
+
+        if (donationsOverTime.length > 0) {
+          await ReportsService.storeDonationsTimeline({
+            walletAddress,
+            timelineData: donationsOverTime,
+            lastUpdated: new Date().toISOString()
+          });
+        }
+
+        // Fetch additional data from API
+        const [allocs, privateFundsData, remainingFundsData] = await Promise.all([
           TransactionAPI.getAllAllocations().catch(() => []),
           TransactionAPI.getPrivateFunds().catch(() => null),
           TransactionAPI.getRemainingFunds().catch(() => [])
         ]);
-        setFundingStats(stats);
+        
         setAllocations(allocs);
         setPrivateFunds(privateFundsData);
         setRemainingFunds(remainingFundsData);
+        setLastDataUpdate(new Date().toISOString());
         
-        // Fetch wallet balance
-        if (isConnected && account && wallet) {
-          const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
-          const balance = await algoService.getBalance(account);
-          setWalletBalance(balance);
-        }
       } catch (error) {
-        console.error('Failed to fetch funding data:', error);
+        console.error('Failed to fetch and store funding data:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, [isConnected, account, wallet]);
+    
+    fetchAndStoreData();
+  }, [donations, projects, isConnected, account, wallet]);
 
-  // Calculate real statistics from donations and allocations
-  const totalFunds = donations.reduce((sum, donation) => sum + donation.amount, 0);
-  
-  // Only count funds that have been actually allocated to projects
-  const totalAllocated = donations.reduce((sum, donation) => {
+  // Use stored funding statistics or calculate from current data
+  const totalFunds = fundingStats?.totalFunds || donations.reduce((sum, donation) => sum + donation.amount, 0);
+  const totalAllocated = fundingStats?.totalAllocated || donations.reduce((sum, donation) => {
     const donationAllocations = donation.allocations || [];
     return sum + donationAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
   }, 0);
-  
-  // Calculate remaining funds (unallocated) - using wallet balance as the base
-  const totalRemainingFunds = walletBalance - totalAllocated;
-  
-  const uniqueOrganizations = new Set(donations.map(d => d.organizationName)).size;
-  const avgDonation = donations.length > 0 ? totalFunds / donations.length : 0;
-  const totalAllocationCount = donations.reduce((sum, donation) => {
+  const totalRemainingFunds = fundingStats?.remainingFunds || (walletBalance - totalAllocated);
+  const uniqueOrganizations = fundingStats?.uniqueOrganizations || new Set(donations.map(d => d.organizationName)).size;
+  const avgDonation = fundingStats?.avgDonation || (donations.length > 0 ? totalFunds / donations.length : 0);
+  const totalAllocationCount = fundingStats?.totalAllocationCount || donations.reduce((sum, donation) => {
     return sum + (donation.allocations?.length || 0);
   }, 0);
 
@@ -144,10 +234,15 @@ export const ReportsTab = () => {
         <div>
           <h2 className="text-2xl font-bold text-foreground">Reports Overview</h2>
           <p className="text-muted-foreground">Comprehensive analysis of your giving patterns</p>
+          {lastDataUpdate && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last updated: {new Date(lastDataUpdate).toLocaleString()}
+            </p>
+          )}
         </div>
         <Badge variant="outline" className="bg-card">
           <Calendar className="h-3 w-3 mr-1" />
-          Year to Date
+          Live Data
         </Badge>
       </div>
 

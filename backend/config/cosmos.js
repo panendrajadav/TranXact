@@ -7,9 +7,11 @@ const client = new CosmosClient({
 
 const database = client.database(process.env.COSMOS_DATABASE);
 const transactionContainer = database.container('transactions');
+const pvtreportContainer = database.container('pvtreport');
 
 module.exports = {
   client,
   database,
-  transactionContainer
+  transactionContainer,
+  pvtreportContainer
 };

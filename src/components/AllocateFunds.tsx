@@ -11,7 +11,9 @@ import { useProjects } from "@/contexts/ProjectProvider";
 import { useWallet } from "@/contexts/WalletProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
+import { AlgorandService } from "@/lib/algorand";
 import { TransactionAPI } from "@/lib/transactionAPI";
+import { ReportsService } from "@/lib/reportsService";
 import { toast } from "@/components/ui/use-toast";
 
 export function AllocateFunds() {
@@ -125,21 +127,50 @@ export function AllocateFunds() {
       TransactionAPI.addAllocation(selectedDonation, allocationRecord)
         .catch(error => console.error('Failed to store allocation in DB:', error));
       
-      // Calculate and store remaining funds after state update
-      setTimeout(() => {
-        const updatedDonation = donations.find(d => d.id === selectedDonation);
-        if (updatedDonation) {
-          const totalAllocatedAfter = (updatedDonation.allocations?.reduce((sum, alloc) => sum + alloc.amount, 0) || 0);
-          const remainingFunds = updatedDonation.amount - totalAllocatedAfter;
-          
-          // Store remaining funds in database
-          TransactionAPI.storeRemainingFunds({
-            donationId: selectedDonation,
-            totalAmount: updatedDonation.amount,
-            allocatedAmount: totalAllocatedAfter,
-            remainingAmount: remainingFunds,
-            lastUpdated: new Date().toISOString()
-          }).catch(error => console.error('Failed to store remaining funds:', error));
+      // Update reports data after allocation
+      setTimeout(async () => {
+        try {
+          const updatedDonation = donations.find(d => d.id === selectedDonation);
+          if (updatedDonation) {
+            const totalAllocatedAfter = (updatedDonation.allocations?.reduce((sum, alloc) => sum + alloc.amount, 0) || 0);
+            const remainingFunds = updatedDonation.amount - totalAllocatedAfter;
+            
+            // Store remaining funds in database
+            await TransactionAPI.storeRemainingFunds({
+              donationId: selectedDonation,
+              totalAmount: updatedDonation.amount,
+              allocatedAmount: totalAllocatedAfter,
+              remainingAmount: remainingFunds,
+              lastUpdated: new Date().toISOString()
+            });
+
+            // Update funding statistics in reports
+            const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
+            const currentBalance = await algoService.getBalance(account);
+            
+            const totalFunds = donations.reduce((sum, donation) => sum + donation.amount, 0);
+            const totalAllocated = donations.reduce((sum, donation) => {
+              const donationAllocations = donation.allocations || [];
+              return sum + donationAllocations.reduce((allocSum, alloc) => allocSum + alloc.amount, 0);
+            }, 0) + amount; // Include current allocation
+            
+            const fundingStatsData = {
+              walletAddress: account,
+              totalFunds,
+              totalAllocated,
+              remainingFunds: currentBalance - totalAllocated,
+              uniqueOrganizations: new Set(donations.map(d => d.organizationName)).size,
+              avgDonation: donations.length > 0 ? totalFunds / donations.length : 0,
+              totalAllocationCount: donations.reduce((sum, donation) => {
+                return sum + (donation.allocations?.length || 0);
+              }, 0) + 1, // Include current allocation
+              lastUpdated: new Date().toISOString()
+            };
+            
+            await ReportsService.storeFundingStatistics(fundingStatsData);
+          }
+        } catch (error) {
+          console.error('Failed to update reports data:', error);
         }
       }, 100);
 
