@@ -34,7 +34,7 @@ export const donationService = {
 
   // Get donations by wallet address
   async getDonationsByWallet(walletAddress: string): Promise<Donation[]> {
-    const response = await fetch(`${API_BASE_URL}/donations/wallet/${walletAddress}`);
+    const response = await fetch(`${API_BASE_URL}/donations/donor/${walletAddress}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch donations');

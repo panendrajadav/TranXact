@@ -31,7 +31,7 @@ import { AlgorandService } from '@/lib/algorand';
 import { APP_CONFIG } from '@/lib/config';
 
 export const ReportsTab = () => {
-  const { donations } = useDonations();
+  const { donations, loadDonationsFromDB } = useDonations();
   const { projects } = useProjects();
   const { wallet, account, isConnected } = useWallet();
   const [fundingStats, setFundingStats] = useState<any>(null);
@@ -44,6 +44,11 @@ export const ReportsTab = () => {
 
   useEffect(() => {
     const fetchAndStoreData = async () => {
+      // Load donations from database when wallet connects
+      if (account) {
+        await loadDonationsFromDB(account);
+      }
+      
       // Allow loading for private donations even without wallet connection
       const walletAddress = account || 'private_donor';
 

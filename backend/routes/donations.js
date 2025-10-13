@@ -18,6 +18,7 @@ router.post('/', async (req, res) => {
       id: req.body.donationId || `donation_${Date.now()}`,
       donorAddress: req.body.donorAddress,
       organizationName: req.body.organizationName,
+      organizationWallet: req.body.organizationWallet,
       amount: req.body.amount,
       reason: req.body.reason,
       date: req.body.date || new Date().toISOString(),
@@ -58,7 +59,22 @@ router.put('/:donationId/allocations', async (req, res) => {
     const { donationId } = req.params;
     const { allocation } = req.body;
 
-    const { resource: donation } = await donationContainer.item(donationId, donationId).read();
+    console.log('Adding allocation to donation:', donationId);
+    console.log('Allocation data:', allocation);
+
+    // First, find the donation using query
+    const querySpec = {
+      query: 'SELECT * FROM c WHERE c.id = @id',
+      parameters: [{ name: '@id', value: donationId }]
+    };
+    
+    const { resources } = await donationContainer.items.query(querySpec).fetchAll();
+    
+    if (resources.length === 0) {
+      return res.status(404).json({ error: 'Donation not found' });
+    }
+    
+    const donation = resources[0];
     
     if (!donation.allocations) {
       donation.allocations = [];
@@ -66,9 +82,12 @@ router.put('/:donationId/allocations', async (req, res) => {
     
     donation.allocations.push(allocation);
     
-    const { resource } = await donationContainer.item(donationId, donationId).replace(donation);
+    // Use upsert to update the document
+    const { resource } = await donationContainer.items.upsert(donation);
+    console.log('Allocation added successfully');
     res.json(resource);
   } catch (error) {
+    console.error('Error adding allocation:', error);
     res.status(500).json({ error: error.message });
   }
 });

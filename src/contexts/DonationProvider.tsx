@@ -26,6 +26,7 @@ interface DonationContextType {
   addAllocation: (donationId: string, allocation: Allocation) => void;
   getDonationsByDonor: (address: string) => Donation[];
   getOrganizationDonations: (organizationWallet: string) => Promise<Donation[]>;
+  loadDonationsFromDB: (walletAddress: string) => Promise<void>;
   clearDonations: () => void;
 }
 
@@ -55,6 +56,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       donationId: newDonation.id,
       donorAddress: newDonation.donorAddress,
       organizationName: newDonation.organizationName,
+      organizationWallet: 'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ', // United Nations wallet
       amount: newDonation.amount,
       reason: newDonation.reason,
       date: newDonation.date,
@@ -89,6 +91,15 @@ export function DonationProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loadDonationsFromDB = async (walletAddress: string) => {
+    try {
+      const dbDonations = await TransactionAPI.getDonations(walletAddress);
+      setDonations(dbDonations);
+    } catch (error) {
+      console.error('Failed to load donations from DB:', error);
+    }
+  };
+
   const clearDonations = () => {
     setDonations([]);
   };
@@ -100,6 +111,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       addAllocation,
       getDonationsByDonor,
       getOrganizationDonations,
+      loadDonationsFromDB,
       clearDonations
     }}>
       {children}

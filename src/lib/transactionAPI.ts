@@ -15,6 +15,7 @@ export interface DonationData {
   donationId?: string;
   donorAddress: string;
   organizationName: string;
+  organizationWallet?: string;
   amount: number;
   reason: string;
   date?: string;

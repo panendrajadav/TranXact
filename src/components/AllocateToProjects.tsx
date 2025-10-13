@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useDonations } from "@/contexts/DonationProvider";
 import { useProjects } from "@/contexts/ProjectProvider";
 import { useWallet } from "@/contexts/WalletProvider";
+import { useAuth } from "@/contexts/AuthProvider";
 import { AlgorandService } from "@/lib/algorand";
 import { TransactionAPI } from "@/lib/transactionAPI";
 import { toast } from "@/components/ui/use-toast";
@@ -16,6 +17,7 @@ import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 export function AllocateToProjects() {
   const { getOrganizationDonations, addAllocation } = useDonations();
   const { projects, updateProjectFunding } = useProjects();
+  const { userName } = useAuth();
   const [selectedDonation, setSelectedDonation] = useState("");
   const [selectedProject, setSelectedProject] = useState("");
   const [amount, setAmount] = useState("");
@@ -25,23 +27,25 @@ export function AllocateToProjects() {
   const { wallet, account, isConnected } = useWallet();
 
   useEffect(() => {
-    const fetchOrganizationDonations = async () => {
+    const fetchDonations = async () => {
       if (account) {
         try {
+          // Only get organization-specific donations to avoid duplicates
           const orgDonations = await getOrganizationDonations(account);
           setOrganizationDonations(orgDonations);
         } catch (error) {
-          console.error('Failed to fetch organization donations:', error);
+          console.error('Failed to fetch donations:', error);
         }
       }
     };
     
-    fetchOrganizationDonations();
+    fetchDonations();
   }, [account, getOrganizationDonations]);
 
   const availableDonations = organizationDonations.filter(d => {
     const allocated = d.allocations?.reduce((sum: number, a: any) => sum + a.amount, 0) || 0;
-    return d.amount > allocated;
+    const hasRemainingFunds = d.amount > allocated;
+    return hasRemainingFunds;
   });
 
   const handleAllocate = async () => {
@@ -121,13 +125,22 @@ export function AllocateToProjects() {
         notes: `Received allocation for ${project.title}`
       }).catch(error => console.error('Failed to store received transaction:', error));
 
-      addAllocation(selectedDonation, {
+      // Add allocation to the donation record
+      const allocation = {
         projectName: project.title,
         projectId: selectedProject,
         amount: allocAmount,
         status: 'completed',
-        date: new Date().toISOString()
-      });
+        date: new Date().toISOString(),
+        allocatedBy: account,
+        transactionId: txnId
+      };
+      
+      // Update the donation's allocations array in the database
+      await TransactionAPI.addAllocation(selectedDonation, allocation);
+      
+      // Update local state
+      addAllocation(selectedDonation, allocation);
 
       // Update project funding
       updateProjectFunding(selectedProject, allocAmount);
@@ -165,16 +178,30 @@ export function AllocateToProjects() {
             <CardTitle>Available Donations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {availableDonations.length === 0 ? (
+            {organizationDonations.length === 0 ? (
               <div className="p-3 text-center text-muted-foreground">
-                No available donations to allocate
+                No donations found for this organization
+              </div>
+            ) : availableDonations.length === 0 ? (
+              <div className="p-3 text-center text-muted-foreground">
+                All donations are fully allocated
+                <div className="mt-2 text-sm">
+                  {organizationDonations.map(d => {
+                    const allocated = d.allocations?.reduce((sum: number, a: any) => sum + a.amount, 0) || 0;
+                    return (
+                      <div key={d.id} className="p-2 border rounded mt-1">
+                        {d.amount} ALGO (allocated: {allocated})
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              availableDonations.map((donation) => {
+              availableDonations.map((donation, index) => {
                 const allocated = donation.allocations?.reduce((sum: number, a: any) => sum + a.amount, 0) || 0;
                 const remaining = donation.amount - allocated;
                 return (
-                  <div key={donation.id} className="p-3 border rounded">
+                  <div key={`${donation.id}-${index}`} className="p-3 border rounded">
                     <div className="font-medium">{donation.amount} ALGO from Donor</div>
                     <div className="text-sm text-muted-foreground">{donation.reason}</div>
                     <div className="text-sm">Remaining: {remaining.toFixed(2)} ALGO</div>
@@ -197,11 +224,11 @@ export function AllocateToProjects() {
                   <SelectValue placeholder="Choose donation" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableDonations.map((donation) => {
+                  {availableDonations.map((donation, index) => {
                     const allocated = donation.allocations?.reduce((sum: number, a: any) => sum + a.amount, 0) || 0;
                     const remaining = donation.amount - allocated;
                     return (
-                      <SelectItem key={donation.id} value={donation.id}>
+                      <SelectItem key={`${donation.id}-${index}`} value={donation.id}>
                         {remaining.toFixed(2)} ALGO remaining - {donation.reason}
                       </SelectItem>
                     );

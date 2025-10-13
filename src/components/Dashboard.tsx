@@ -29,8 +29,8 @@ export const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const { projects } = useProjects();
-  const { donations } = useDonations();
-  const { wallet } = useWallet();
+  const { donations, loadDonationsFromDB } = useDonations();
+  const { wallet, account } = useWallet();
   const [projectBalances, setProjectBalances] = useState<{[key: string]: number}>({});
 
   const handleSendFunds = () => {
@@ -47,9 +47,15 @@ export const Dashboard = () => {
     setShowReceiveModal(true);
   };
 
-  // Fetch project balances
+  // Load donations and fetch project balances
   useEffect(() => {
-    const fetchBalances = async () => {
+    const fetchData = async () => {
+      // Load donations from database when wallet connects
+      if (account) {
+        await loadDonationsFromDB(account);
+      }
+      
+      // Fetch project balances
       if (!wallet || projects.length === 0) return;
       
       const algoService = new AlgorandService(wallet, APP_CONFIG.algorand.useTestNet);
@@ -68,8 +74,8 @@ export const Dashboard = () => {
       setProjectBalances(balances);
     };
     
-    fetchBalances();
-  }, [wallet, projects]);
+    fetchData();
+  }, [wallet, projects, account, loadDonationsFromDB]);
 
   // Get top 3 funded projects
   const topFundedProjects = projects
