@@ -52,14 +52,27 @@ router.put('/:projectId/funding', async (req, res) => {
     const { projectId } = req.params;
     const { amount } = req.body;
 
-    const { resource: project } = await projectContainer.item(projectId, projectId).read();
+    // Find project using query
+    const querySpec = {
+      query: 'SELECT * FROM c WHERE c.id = @id',
+      parameters: [{ name: '@id', value: projectId }]
+    };
     
+    const { resources } = await projectContainer.items.query(querySpec).fetchAll();
+    
+    if (resources.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    const project = resources[0];
     project.raised = (project.raised || 0) + amount;
     project.backers = (project.backers || 0) + 1;
     
-    const { resource } = await projectContainer.item(projectId, projectId).replace(project);
+    // Use upsert to update
+    const { resource } = await projectContainer.items.upsert(project);
     res.json(resource);
   } catch (error) {
+    console.error('Error updating project funding:', error);
     res.status(500).json({ error: error.message });
   }
 });

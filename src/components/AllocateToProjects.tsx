@@ -49,6 +49,8 @@ export function AllocateToProjects() {
   });
 
   const handleAllocate = async () => {
+    if (isProcessing) return; // Prevent duplicate calls
+    
     if (!isConnected || !account) {
       toast({
         title: "Wallet Not Connected",
@@ -66,11 +68,11 @@ export function AllocateToProjects() {
 
     if (!donation || !project) return;
 
-    const allocated = donation.allocations.reduce((sum, a) => sum + a.amount, 0);
+    const allocated = donation.allocations?.reduce((sum, a) => sum + a.amount, 0) || 0;
     if (allocated + allocAmount > donation.amount) {
       toast({
         title: "Invalid Amount",
-        description: "Cannot allocate more than available donation amount",
+        description: `Cannot allocate ${allocAmount} ALGO. Only ${(donation.amount - allocated).toFixed(2)} ALGO remaining.`,
         variant: "destructive"
       });
       return;
@@ -139,11 +141,9 @@ export function AllocateToProjects() {
       // Update the donation's allocations array in the database
       await TransactionAPI.addAllocation(selectedDonation, allocation);
       
-      // Update local state
-      addAllocation(selectedDonation, allocation);
-
-      // Update project funding
-      updateProjectFunding(selectedProject, allocAmount);
+      // Refresh the donations list to show updated allocations (don't use context to avoid duplicates)
+      const orgDonations = await getOrganizationDonations(account);
+      setOrganizationDonations(orgDonations);
 
       toast({
         title: "Allocation Successful",
