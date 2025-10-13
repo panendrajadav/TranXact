@@ -220,4 +220,30 @@ export class TransactionAPI {
 
     return response.json();
   }
+
+  static async storeOrganizationDonation(data: any): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/donations/organization`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to store organization donation: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  static async getOrganizationDonations(organizationWallet: string): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/donations/organization/${organizationWallet}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to get organization donations: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
 }

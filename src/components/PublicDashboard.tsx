@@ -24,6 +24,7 @@ export function PublicDashboard() {
   const [highlightedProject, setHighlightedProject] = useState<string | null>(null);
   const [privateFunds, setPrivateFunds] = useState<any>(null);
   const [walletBalances, setWalletBalances] = useState<{[key: string]: number}>({});
+  const [organizationDonations, setOrganizationDonations] = useState<any[]>([]);
 
   const handleViewProject = (projectId: string) => {
     setHighlightedProject(projectId);
@@ -81,14 +82,33 @@ export function PublicDashboard() {
       
       setWalletBalances(balances);
     };
+
+    const fetchOrganizationDonations = async () => {
+      if (account) {
+        try {
+          const orgDonations = await TransactionAPI.getOrganizationDonations(account);
+          setOrganizationDonations(orgDonations);
+        } catch (error) {
+          console.error('Failed to fetch organization donations:', error);
+        }
+      }
+    };
     
     fetchBalance();
     fetchPrivateFunds();
     fetchWalletBalances();
+    fetchOrganizationDonations();
   }, [isConnected, account, wallet, projects]);
 
-  // Calculate total funding from actual donations only
-  const totalFunding = donations.reduce((sum, donation) => sum + donation.amount, 0);
+  // Calculate total funding: project wallet balances + unallocated donations
+  const totalWalletBalance = Object.values(walletBalances).reduce((sum, balance) => sum + balance, 0);
+  const totalAllocations = organizationDonations.reduce((sum, donation) => {
+    const allocated = donation.allocations?.reduce((allocSum: number, alloc: any) => allocSum + alloc.amount, 0) || 0;
+    return sum + allocated;
+  }, 0);
+  const totalDonationsReceived = organizationDonations.reduce((sum, donation) => sum + donation.amount, 0);
+  const unallocatedDonations = totalDonationsReceived - totalAllocations;
+  const totalFunding = totalWalletBalance + unallocatedDonations;
   
   const impactStats = [
     { label: "Total Funding", value: `${totalFunding.toFixed(2)} ALGO` },

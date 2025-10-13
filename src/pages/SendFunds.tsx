@@ -119,10 +119,11 @@ const SendFunds = () => {
         notes: `${reason} - Donation to ${organizations.find(org => org.id === selectedOrg)?.name}`
       }).catch(error => console.error('Failed to store transaction:', error));
 
-      // Store donation in CosmosDB (non-blocking)
-      TransactionAPI.storeDonation({
+      // Store donation in organization-specific collection in CosmosDB
+      TransactionAPI.storeOrganizationDonation({
         donorAddress: account,
         organizationName: organizations.find(org => org.id === selectedOrg)?.name || '',
+        organizationWallet: orgWallet,
         amount: amountNum,
         reason: reason,
         date: new Date().toISOString(),
@@ -130,19 +131,12 @@ const SendFunds = () => {
         allocations: [],
         status: 'active'
       }).then(result => {
-        console.log('Donation stored successfully:', result);
+        console.log('Organization donation stored successfully:', result);
       }).catch(error => {
-        console.error('Failed to store donation:', error);
+        console.error('Failed to store organization donation:', error);
       });
 
-      addDonation({
-        donorAddress: account,
-        organizationName: organizations.find(org => org.id === selectedOrg)?.name || '',
-        amount: amountNum,
-        reason: reason,
-        date: new Date().toISOString(),
-        transactionId: txnId
-      });
+      // Don't add to local donations anymore - only store in organization-specific DB
 
       toast({
         title: "Transaction Successful",
