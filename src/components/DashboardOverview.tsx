@@ -3,9 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 import { useState } from "react";
+import { useWallet } from '@/contexts/WalletProvider';
+import { useAuth } from '@/contexts/AuthProvider';
 
 const DashboardOverview = () => {
   const [showDialog, setShowDialog] = useState(false);
+  const { account } = useWallet();
+  const { userName } = useAuth();
+
+  // Special mapping for known addresses
+  const specialNames: Record<string, string> = {
+    'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ': 'United Nations'
+  };
+
+  const displayName = account && specialNames[account]
+    ? specialNames[account]
+    : (userName || (account ? `${account.slice(0,6)}...${account.slice(-4)}` : 'User'));
 
   const impactStats = [
     { label: "Total Donations", value: "3,750 ALGO" },
@@ -36,6 +49,10 @@ const DashboardOverview = () => {
 
   return (
     <div className="space-y-8">
+      {/* Greeting */}
+      <section>
+        <h1 className="text-3xl font-semibold">Welcome {displayName}</h1>
+      </section>
       {/* My Impact Stats */}
       <section>
         <h2 className="text-2xl font-semibold mb-4">My Impact</h2>

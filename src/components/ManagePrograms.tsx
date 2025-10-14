@@ -118,8 +118,8 @@ export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {})
     
     fetchData();
     
-    // Refresh data every 10 seconds
-    const interval = setInterval(fetchData, 10000);
+    // Refresh data every 30 seconds instead of 10
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [wallet, projects]);
 
