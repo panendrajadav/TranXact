@@ -200,7 +200,7 @@ const Login = () => {
       {/* Right side - Image */}
       <div className="w-1/2 bg-muted/30 flex items-center justify-center">
         <div className="w-full h-full bg-gradient-to-br flex items-center justify-center">
-          <img src="src/assets/children1.jpg" alt="Community Impact" className="w-full h-full object-cover" />
+          <img src="src/assets/image.jpg" alt="Community Impact" className="w-full h-full object-cover" />
         </div>
       </div>
 
