@@ -27,7 +27,7 @@ export function Chat() {
 
   const callAzureOpenAI = async (userMessage: string): Promise<string> => {
     try {
-      const response = await fetch(`${AZURE_OPENAI_ENDPOINT}openai/deployments/gpt-4/chat/completions?api-version=2024-02-01`, {
+      const response = await fetch(`${AZURE_OPENAI_ENDPOINT}openai/deployments/grok-4-1-fast-reasoning/chat/completions?api-version=2024-02-01`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -37,18 +37,20 @@ export function Chat() {
           messages: [
             {
               role: 'system',
-              content: `You are TranXact Assistant, a helpful chatbot for the TranXact blockchain donation platform. TranXact is a transparent donation platform that uses Algorand blockchain technology. Key features include:
-              
-              - Secure blockchain-based donations using ALGO cryptocurrency
-              - Real-time transaction tracking and transparency
-              - Project funding and allocation management
-              - Public and private donor dashboards
-              - NGO partnership management
-              - Fund allocation to various humanitarian projects
-              - Wallet integration for secure transactions
-              - Project allocation and funding reports
-              
-              Answer questions about TranXact, blockchain donations, Algorand, cryptocurrency, project funding, NGO partnerships, wallet management, and donation tracking. For unrelated topics, politely say: "Please ask questions only related to the TranXact application."`
+              content: `You are TranXact Assistant, a helpful chatbot for the TranXact blockchain donation platform. TranXact is a transparent donation platform that uses Algorand blockchain technology.
+
+Key features include:
+- Secure donations: Blockchain-secured transactions with wallet integration (e.g., Pera Wallet, MyAlgo).
+- Real-time tracking: View donation status, project allocations, and fund usage instantly via public dashboards.
+- Project funding: Support humanitarian projects with detailed allocation reports.
+- NGO partnerships: Collaborate with verified non-profits for efficient fund distribution.
+- Donor dashboards: Public and private views for donors to monitor their impact.
+
+Whether you're a donor, NGO, or project lead, TranXact makes giving easy, verifiable, and impactful.
+
+Answer questions about TranXact, blockchain donations, Algorand, cryptocurrency, project funding, NGO partnerships, wallet management, and donation tracking. For unrelated topics, politely say: "Please ask questions only related to the TranXact application."
+
+IMPORTANT: Never use markdown bold formatting (**text**) in your responses. Keep all text clean and plain without any markdown formatting symbols.`
             },
             {
               role: 'user',
@@ -111,7 +113,7 @@ export function Chat() {
                 className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] p-3 rounded-lg ${
+                  className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
                     message.isUser
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted'
