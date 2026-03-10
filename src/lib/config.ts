@@ -4,10 +4,10 @@ export const APP_CONFIG = {
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
   
-  // Algorand network settings
+  // Algorand network settings - Always use TestNet for testing
   algorand: {
-    useTestNet: import.meta.env.DEV, // Use TestNet in development, MainNet in production
-    chainId: import.meta.env.DEV ? 416002 : 416001, // TestNet: 416002, MainNet: 416001
+    useTestNet: true, // Always use TestNet for testing
+    chainId: 416002, // TestNet: 416002
   },
   
   // Application metadata
@@ -19,9 +19,9 @@ export const APP_CONFIG = {
   
   // Feature flags
   features: {
-    realTransactions: import.meta.env.DEV, // Enable real transactions in development
-    mockData: import.meta.env.DEV, // Use mock data in development
-    analytics: import.meta.env.PROD // Enable analytics in production
+    realTransactions: import.meta.env.DEV,
+    mockData: import.meta.env.DEV,
+    analytics: import.meta.env.PROD
   }
 };
 

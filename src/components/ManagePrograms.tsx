@@ -15,6 +15,8 @@ import { APP_CONFIG } from "@/lib/config";
 import { TransactionService } from "@/lib/transactionService";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
 import { toast } from "@/components/ui/use-toast";
+import emergencyFoodImg from "@/assets/emergencyfoodsupplies.png";
+import ruralDevImg from "@/assets/ruraldevelopment.png";
 
 interface Project {
   id: string;
@@ -230,6 +232,12 @@ export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {})
     }
   };
 
+  const getProjectImage = (title: string) => {
+    if (title === "Emergency Food Supplies") return emergencyFoodImg;
+    if (title === "Rural Development") return ruralDevImg;
+    return emergencyFoodImg;
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -424,9 +432,7 @@ export function ManagePrograms({ highlightedProject }: ManageProgramsProps = {})
           >
             <div className="h-48 rounded-t-lg overflow-hidden relative">
               <img 
-                src={project.title === "Emergency Food Supplies" ? "src/assets/emergencyfoodsupplies.png" : 
-                     project.title === "Rural Development" ? "src/assets/ruraldevelopment.png" : 
-                     "src/assets/children.jpg"} 
+                src={getProjectImage(project.title)} 
                 alt={project.title} 
                 className="object-cover w-full h-full" 
               />

@@ -12,6 +12,8 @@ import { AlgorandService } from "@/lib/algorand";
 import { APP_CONFIG } from "@/lib/config";
 import { TransactionService } from "@/lib/transactionService";
 import UnderDevelopmentDialog from "@/components/UnderDevelopmentDialog";
+import emergencyFoodImg from "@/assets/emergencyfoodsupplies.png";
+import ruralDevImg from "@/assets/ruraldevelopment.png";
 
 const Projects = () => {
   const [showDialog, setShowDialog] = useState(false);
@@ -67,6 +69,12 @@ const Projects = () => {
     fetchData();
   }, [wallet, projects]);
 
+  const getProjectImage = (title: string) => {
+    if (title === "Emergency Food Supplies") return emergencyFoodImg;
+    if (title === "Rural Development") return ruralDevImg;
+    return emergencyFoodImg;
+  };
+
   // Use wallet balances and transaction counts for project data
   const projectsWithAllocations = projects.map(project => {
     const walletBalance = walletBalances[project.wallet] || 0;
@@ -78,13 +86,9 @@ const Projects = () => {
       backers: txCount,
       daysLeft: Math.floor(Math.random() * 60) + 10,
       status: walletBalance >= project.target ? "completed" : "active",
-      image: project.title === "Emergency Food Supplies" ? "src/assets/emergencyfoodsupplies.png" : 
-             project.title === "Rural Development" ? "src/assets/ruraldevelopment.png" : 
-             "src/assets/children.jpg"
+      image: getProjectImage(project.title)
     };
   });
-
-
 
   const getStatusColor = (status: string) => {
     switch (status) {
