@@ -46,11 +46,11 @@ const GetStarted = () => {
   const impactStats = [
     { label: "Total Lives Impacted", value: "1,500+" },
     { label: "Projects Completed", value: "30" },
-    { label: "Total Donations", value: "$25,000" }
+    { label: "Total Donations", value: "25,000 Algo" }
   ];
 
   const globalStats = [
-    { label: "Total Donations", value: "$15,000" },
+    { label: "Total Donations", value: "15,000 Algo" },
     { label: "Projects Supported", value: "25" },
     { label: "Lives Impacted", value: "500+" }
   ];

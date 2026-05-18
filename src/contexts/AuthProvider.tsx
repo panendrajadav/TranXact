@@ -33,6 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userPhone, setUserPhone] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
+  const walletToUsername: { [key: string]: string } = {
+    '3IE6PIUGCN62JKKXCTWHSAFCHXSTNPIIL4D5VQFPNGWU4B5UWWKL5V7AM4': 'Panendra',
+    'XG2SGTDHQMMGZECHVU3CH3WXFBLLDNYJIAZ3C2VOGP774IYJMNJ4MEDWAY': 'Private User',
+    'OFDV5E5ZTP45MHXCQQ5EHIXAKIJ2BXGMFAAYU6Z2NG4MZTNCB3BOYXIBSQ': 'United Nations',
+    'DYT6HEX5FQY7F26E3CUIRUFP6RQKKXKOMZLXUW5FKITZE74YJWTFNTWDPU': 'Asha Foundation',
+    'J7LJIQ7JK3Q6OWMUSW6DWIYC3HRNLSXGL5KQ5TFJXILFKXDURSE2PSAFOI': 'MB Foundation'
+  };
+
   // Load saved data on mount
   useEffect(() => {
     const savedAuth = localStorage.getItem('isAuthenticated');
